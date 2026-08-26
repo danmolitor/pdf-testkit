@@ -28,5 +28,12 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/danmolitor/pdf-testkit.git",
+    "directory": "packages/vitest"
+  },
+  "homepage": "https://github.com/danmolitor/pdf-testkit#readme",
+  "bugs": "https://github.com/danmolitor/pdf-testkit/issues"
 }

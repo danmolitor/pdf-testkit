@@ -18,5 +18,12 @@
   },
   "devDependencies": {
     "@vercel/ncc": "^0.38.3"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/danmolitor/pdf-testkit.git",
+    "directory": "packages/action"
+  },
+  "homepage": "https://github.com/danmolitor/pdf-testkit#readme",
+  "bugs": "https://github.com/danmolitor/pdf-testkit/issues"
 }
