@@ -1,0 +1,12 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/core" },
+    { "path": "./packages/matcher-core" },
+    { "path": "./packages/jest" },
+    { "path": "./packages/vitest" },
+    { "path": "./packages/cli" },
+    { "path": "./packages/action" },
+    { "path": "./packages/fixtures" }
+  ]
+}

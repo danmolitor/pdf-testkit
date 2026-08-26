@@ -1,0 +1,35 @@
+name: 'pdf-testkit'
+description: 'Post semantic PDF regression diffs as a pull-request comment'
+author: 'pdf-testkit'
+branding:
+  icon: 'file-text'
+  color: 'blue'
+inputs:
+  baseline:
+    description: 'Path to the committed baseline (.json snapshot or .pdf)'
+    required: true
+  current:
+    description: 'Path to the newly generated document (.json snapshot or .pdf)'
+    required: true
+  fail-on:
+    description: 'Severity gate that fails the check: error | warn | any'
+    required: false
+    default: 'error'
+  comment:
+    description: 'Post/update a PR comment with the semantic diff'
+    required: false
+    default: 'true'
+  token:
+    description: 'GitHub token used to post the comment'
+    required: false
+    default: ${{ github.token }}
+outputs:
+  changed:
+    description: 'true if any semantic change was detected'
+  event-count:
+    description: 'number of semantic events detected'
+runs:
+  # dist/index.js is produced by `npm run bundle` (ncc) — it bundles the core
+  # engine so the action runs with no install step on the runner.
+  using: 'node20'
+  main: 'dist/index.js'

@@ -1,0 +1,31 @@
+{
+  "name": "@pdf-testkit/core",
+  "version": "0.1.0",
+  "description": "Semantic structural model, extractors, and diff engine for pdf-testkit",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc --build",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@formepdf/core": "*",
+    "pdfjs-dist": "^4.10 || ^5"
+  },
+  "peerDependenciesMeta": {
+    "@formepdf/core": { "optional": true },
+    "pdfjs-dist": { "optional": true }
+  },
+  "devDependencies": {
+    "pdfjs-dist": "^4.10.38"
+  }
+}
