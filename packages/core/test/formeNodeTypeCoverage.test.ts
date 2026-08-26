@@ -110,8 +110,75 @@ describe('FormePDF ElementNodeType — installed-vs-pinned drift check', () => {
   });
 });
 
-/** Parse the ElementNodeType union out of the installed @formepdf/core's shipped
- * .d.ts (the type is type-only — no runtime array to import). */
+describe('drift-check parser fails loudly on @formepdf/core restructuring', () => {
+  it('parses a valid single-line union', () => {
+    expect(extractElementNodeType(`export type ElementNodeType = 'View' | 'Text' | 'H1';`, 'x')).toEqual([
+      'View',
+      'Text',
+      'H1',
+    ]);
+  });
+
+  it('parses a valid multi-line union', () => {
+    expect(extractElementNodeType(`export type ElementNodeType =\n  | 'View'\n  | 'Text';`, 'x')).toEqual([
+      'View',
+      'Text',
+    ]);
+  });
+
+  it('throws if the union is converted to an enum', () => {
+    expect(() =>
+      extractElementNodeType(`export enum ElementNodeType { View = 'View', Text = 'Text' }`, 'x'),
+    ).toThrow(/Could not find/);
+  });
+
+  it('throws if the type is moved / only re-exported from index', () => {
+    expect(() => extractElementNodeType(`export { ElementNodeType } from './model';`, 'x')).toThrow(
+      /Could not find/,
+    );
+  });
+
+  it('throws (never passes vacuously) if a format change yields zero literals', () => {
+    // e.g. switched to double quotes — the outer regex still matches, but the
+    // literal extractor finds nothing. Must be reported as a parser failure.
+    expect(() =>
+      extractElementNodeType(`export type ElementNodeType = "View" | "Text";`, 'x'),
+    ).toThrow(/PARSER failure/);
+  });
+});
+
+/**
+ * Pure parser for the ElementNodeType union body (type-only in @formepdf/core, so
+ * there's no runtime array to import). Kept separate + pure so its own failure
+ * modes are unit-tested below — a drift-checker that can silently parse zero
+ * types and pass vacuously is the exact failure shape this project hunts.
+ *
+ * Fails LOUDLY and specifically on: the type being renamed/moved/converted to an
+ * enum (regex miss), and on a format change that yields zero literals (e.g. a
+ * switch to double quotes) — the latter is a parser failure, NOT an empty union,
+ * so it must not be mistaken for "@formepdf removed everything".
+ */
+export function extractElementNodeType(dts: string, sourceLabel: string): string[] {
+  const m = /export type ElementNodeType\s*=\s*([\s\S]*?);/.exec(dts);
+  if (!m) {
+    throw new Error(
+      `Could not find "export type ElementNodeType = ..." in ${sourceLabel}. It may have been ` +
+        `renamed, moved to another file, or changed from a type alias (e.g. to an enum). Verify ` +
+        `@formepdf/core manually and update this parser + the pinned list together.`,
+    );
+  }
+  const values = [...m[1]!.matchAll(/'([^']+)'/g)].map((x) => x[1] as string);
+  if (values.length === 0) {
+    throw new Error(
+      `Found "export type ElementNodeType" in ${sourceLabel} but parsed 0 string-literal members. ` +
+        `This is a PARSER failure (likely a format change such as quote style), not an empty union. ` +
+        `Verify @formepdf/core manually and update this parser.`,
+    );
+  }
+  return values;
+}
+
+/** Read + parse the ElementNodeType union from the installed @formepdf/core. */
 function readInstalledElementNodeType(): { version: string; values: string[] } {
   const require = createRequire(import.meta.url);
   let main: string;
@@ -124,17 +191,16 @@ function readInstalledElementNodeType(): { version: string; values: string[] } {
     );
   }
   const dtsPath = main.replace(/\.[cm]?js$/, '.d.ts');
-  const pkg = JSON.parse(readFileSync(join(dirname(dirname(main)), 'package.json'), 'utf8')) as {
-    version: string;
-  };
-  const dts = readFileSync(dtsPath, 'utf8');
-  const m = /export type ElementNodeType\s*=\s*([\s\S]*?);/.exec(dts);
-  if (!m) {
+  let dts: string;
+  let pkg: { version: string };
+  try {
+    pkg = JSON.parse(readFileSync(join(dirname(dirname(main)), 'package.json'), 'utf8'));
+    dts = readFileSync(dtsPath, 'utf8');
+  } catch (err) {
     throw new Error(
-      `Could not find "export type ElementNodeType" in ${dtsPath}. It may have been renamed or ` +
-        `moved in @formepdf/core — update this parser and the pinned list together.`,
+      `Could not read @formepdf/core types at ${dtsPath} (${(err as Error).message}). The package ` +
+        `layout may have changed; verify manually and update this parser.`,
     );
   }
-  const values = [...m[1]!.matchAll(/'([^']+)'/g)].map((x) => x[1] as string);
-  return { version: pkg.version, values };
+  return { version: pkg.version, values: extractElementNodeType(dts, dtsPath) };
 }
