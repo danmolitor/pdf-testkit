@@ -34,5 +34,8 @@
   "devDependencies": {
     "@formepdf/core": "0.12.1",
     "pdfjs-dist": "^4.10.38"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

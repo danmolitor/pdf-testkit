@@ -20,5 +20,8 @@
     "@pdf-testkit/core": "0.1.0",
     "@pdf-testkit/matcher-core": "0.1.0",
     "commander": "^12.1.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
