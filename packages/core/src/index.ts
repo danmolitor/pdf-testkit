@@ -32,7 +32,12 @@ export type {
 export { DEFAULT_SEVERITY, DEFAULT_POSITION_THRESHOLD_PTS } from './events.js';
 
 // Extractors
-export { fromFormeLayout, FormeShapeError } from './extract/fromFormeLayout.js';
+export {
+  fromFormeLayout,
+  FormeShapeError,
+  FORME_ROLE_BY_NODE_TYPE,
+  FORME_INTENTIONALLY_UNMAPPED,
+} from './extract/fromFormeLayout.js';
 export type {
   FormeLayoutInfo,
   FormePageInfo,

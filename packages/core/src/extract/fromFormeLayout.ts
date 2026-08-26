@@ -49,25 +49,77 @@ export interface FormeElementInfo {
   textContent?: string;
 }
 
+/**
+ * Explicit disposition for every value of `@formepdf/core`'s `ElementNodeType`
+ * union. Every union member has a deliberate role here — none rely on the
+ * fallthrough. Audited against @formepdf/core 0.12.1; re-review whenever that
+ * dependency version bumps (the coverage test in formeNodeTypeCoverage.test.ts
+ * enforces that this table + FORME_INTENTIONALLY_UNMAPPED cover the whole union).
+ *
+ * Judgment calls (confirmed): charts + all graphics → opaque `image` regions;
+ * form controls → structural `container`; `Lbl` (list marker) → `text`.
+ */
+export const FORME_ROLE_BY_NODE_TYPE: Record<string, NodeRole> = {
+  // Text & headings
+  Text: 'text',
+  TextLine: 'text',
+  Lbl: 'text', // list marker (bullet/number) — diffable text
+  H1: 'heading',
+  H2: 'heading',
+  H3: 'heading',
+  H4: 'heading',
+  H5: 'heading',
+  H6: 'heading',
+  // Table primitives (no `Table` wrapper — synthesized from contiguous rows)
+  TableRow: 'row',
+  TableCell: 'cell',
+  // Structural containers / regions
+  View: 'container',
+  List: 'container',
+  ListItem: 'container',
+  FixedHeader: 'container',
+  FixedFooter: 'container',
+  // Interactive form controls — tracked as structural regions (the field's
+  // value is content, not asserted; presence/position is).
+  TextField: 'container',
+  Checkbox: 'container',
+  Dropdown: 'container',
+  RadioButton: 'container',
+  // Opaque graphic regions — presence/position diffed, internals ignored.
+  Image: 'image',
+  Svg: 'image',
+  Canvas: 'image',
+  QrCode: 'image',
+  Barcode: 'image',
+  Watermark: 'image',
+  BarChart: 'image',
+  LineChart: 'image',
+  PieChart: 'image',
+  AreaChart: 'image',
+  DotPlot: 'image',
+  // --- Synthetic aliases NOT in the @formepdf union, kept for consumers that
+  // hand-build a simplified LayoutInfo and for unit-test fixtures.
+  Heading: 'heading',
+  Table: 'table',
+  Row: 'row',
+  Cell: 'cell',
+};
+
+/**
+ * Union members intentionally given no semantic role (out of scope for v0.1),
+ * with a one-line reason each. Currently empty — every ElementNodeType maps to a
+ * deliberate role above. Kept as the explicit opt-out mechanism and referenced
+ * by the coverage test so a future "don't test this" decision is visible, never
+ * a silent default.
+ */
+export const FORME_INTENTIONALLY_UNMAPPED: ReadonlySet<string> = new Set<string>([
+  // e.g. 'SomeFutureType', // reason it's out of scope
+]);
+
 function roleFor(nodeType: string): NodeRole {
-  if (/^H[1-6]$/.test(nodeType) || nodeType === 'Heading') return 'heading';
-  switch (nodeType) {
-    case 'Table':
-      return 'table';
-    case 'TableRow':
-    case 'Row':
-      return 'row';
-    case 'TableCell':
-    case 'Cell':
-      return 'cell';
-    case 'Text':
-    case 'TextLine':
-      return 'text';
-    case 'Image':
-      return 'image';
-    default:
-      return 'container';
-  }
+  // Unknown (future) types fall back to `container`; the coverage test + the
+  // version-pin comment are what keep the known union fully dispositioned.
+  return FORME_ROLE_BY_NODE_TYPE[nodeType] ?? 'container';
 }
 
 /** Explicit heading level from an `H1`..`H6` tag, else null (fall back to size). */
@@ -79,6 +131,15 @@ function explicitLevel(nodeType: string): number | null {
 /** Text-leaf roles fold their subtree into one node (text comes from TextLines). */
 function isTextLeaf(role: NodeRole): boolean {
   return role === 'heading' || role === 'text' || role === 'cell';
+}
+
+/**
+ * Leaf roles don't recurse into children. Text leaves fold to collect text;
+ * `image` folds as an OPAQUE graphic (charts, barcodes, etc.) — its internal
+ * labels are deliberately not captured as structural text.
+ */
+function isLeaf(role: NodeRole): boolean {
+  return isTextLeaf(role) || role === 'image';
 }
 
 /**
@@ -144,9 +205,10 @@ export function fromFormeLayout(
       if (role === 'table') node.table = tableShape(el.children ?? []);
       rawNodes.push(node);
 
-      // Text leaves fold their subtree (text already collected). Tables mark
-      // their children as already-in-a-table so rows aren't re-synthesized.
-      if (!isTextLeaf(role)) {
+      // Leaf roles fold their subtree: text leaves already collected their text;
+      // image leaves are opaque graphics. Tables mark their children as
+      // already-in-a-table so rows aren't re-synthesized.
+      if (!isLeaf(role)) {
         processChildren(el.children ?? [], tempId, bbox, role === 'table');
       }
     };
@@ -225,18 +287,23 @@ function assertShapeRecognized(layout: FormeLayoutInfo, snapshot: StructuralSnap
   let hasRow = false;
   let hasCell = false;
   let hasHeading = false;
-  for (const page of layout.pages) {
-    walk(page.elements, (el) => {
-      nodeTypesSeen.add(el.nodeType);
-      if (el.nodeType === 'TableRow' || el.nodeType === 'Row') hasRow = true;
-      if (el.nodeType === 'TableCell' || el.nodeType === 'Cell') hasCell = true;
-      if (/^H[1-6]$/.test(el.nodeType) || el.nodeType === 'Heading') hasHeading = true;
-      if (typeof el.textContent === 'string') {
-        const t = el.textContent.replace(/\s+/g, ' ').trim().toLowerCase();
-        if (t) fragments.push(t);
-      }
-    });
-  }
+  // Custom traversal (not `walk`) so we can STOP at image subtrees: charts and
+  // other graphics are deliberately opaque, so their internal label text is not
+  // expected to be captured and must not count as a dropped fragment.
+  const visit = (el: FormeElementInfo): void => {
+    nodeTypesSeen.add(el.nodeType);
+    const role = roleFor(el.nodeType);
+    if (role === 'row') hasRow = true;
+    if (role === 'cell') hasCell = true;
+    if (role === 'heading') hasHeading = true;
+    if (role === 'image') return; // opaque graphic — do not descend or expect its text
+    if (typeof el.textContent === 'string') {
+      const t = el.textContent.replace(/\s+/g, ' ').trim().toLowerCase();
+      if (t) fragments.push(t);
+    }
+    for (const child of el.children ?? []) visit(child);
+  };
+  for (const page of layout.pages) for (const el of page.elements) visit(el);
   const context = `Seen FormePDF nodeTypes: [${[...nodeTypesSeen].sort().join(', ')}].`;
 
   // 1. Every text fragment in the layout must be captured somewhere. Aggregate
