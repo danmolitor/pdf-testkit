@@ -15,7 +15,7 @@ import { FORME_ROLE_BY_NODE_TYPE, FORME_INTENTIONALLY_UNMAPPED } from '@pdf-test
  * consumes @formepdf/core as an external package (not a shared repo), the union
  * is pinned here as a literal list rather than imported.
  *
- * ⚠️ PINNED against @formepdf/core 0.12.1. This list is now AUTO-VERIFIED against
+ * ⚠️ PINNED against @formepdf/core 0.13.0. This list is now AUTO-VERIFIED against
  * the installed @formepdf/core in the "matches the installed package" test below,
  * so a dependency bump that changes the union fails the build and names exactly
  * what changed — you no longer have to remember to check by hand. Keep the
@@ -38,6 +38,9 @@ const FORMEPDF_ELEMENT_NODE_TYPES = [
   // Fixed regions
   'FixedHeader',
   'FixedFooter',
+  // Navigation marker (zero-height; only emitted when the bookmarked
+  // container overflows a page)
+  'Bookmark',
   // Media
   'Image',
   'Svg',
@@ -78,7 +81,7 @@ describe('FormePDF ElementNodeType coverage', () => {
   });
 
   it('pins exactly the expected union size (guards against silent list edits)', () => {
-    expect(FORMEPDF_ELEMENT_NODE_TYPES).toHaveLength(31);
+    expect(FORMEPDF_ELEMENT_NODE_TYPES).toHaveLength(32);
   });
 });
 

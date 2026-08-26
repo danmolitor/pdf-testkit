@@ -52,7 +52,7 @@ export interface FormeElementInfo {
 /**
  * Explicit disposition for every value of `@formepdf/core`'s `ElementNodeType`
  * union. Every union member has a deliberate role here — none rely on the
- * fallthrough. Audited against @formepdf/core 0.12.1; re-review whenever that
+ * fallthrough. Audited against @formepdf/core 0.13.0; re-review whenever that
  * dependency version bumps (the coverage test in formeNodeTypeCoverage.test.ts
  * enforces that this table + FORME_INTENTIONALLY_UNMAPPED cover the whole union).
  *
@@ -79,6 +79,13 @@ export const FORME_ROLE_BY_NODE_TYPE: Record<string, NodeRole> = {
   ListItem: 'container',
   FixedHeader: 'container',
   FixedFooter: 'container',
+  // Zero-height, non-visual navigation marker emitted by `bookmark` on a
+  // container that overflows a page. No text to diff, carries no table or
+  // heading semantics, and needs none of `image`'s opaque-region treatment —
+  // it's a structural marker whose presence and position are the only
+  // assertable facts. (Same role the fallthrough already produced; making it
+  // explicit is what the coverage tripwire demands.)
+  Bookmark: 'container',
   // Interactive form controls — tracked as structural regions (the field's
   // value is content, not asserted; presence/position is).
   TextField: 'container',
