@@ -9,3 +9,5 @@ coverage/
 *.log
 .idea/
 .vscode/
+# Internal strategy/planning docs — keep out of the repo (esp. before going public)
+*.docx
