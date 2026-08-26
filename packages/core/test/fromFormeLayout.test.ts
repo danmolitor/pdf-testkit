@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { fromFormeLayout } from '@pdf-testkit/core';
+import { fromFormeLayout, FormeShapeError, type FormeLayoutInfo } from '@pdf-testkit/core';
 import { sampleLayout } from './helpers';
 
 describe('fromFormeLayout (authoritative extractor)', () => {
@@ -36,6 +36,10 @@ describe('fromFormeLayout (authoritative extractor)', () => {
     expect(snap.nodes.every((n) => n.confidence === 1)).toBe(true);
   });
 
+  it('does not throw on the representative layout', () => {
+    expect(() => fromFormeLayout(sampleLayout())).not.toThrow();
+  });
+
   it('links cells to rows to the table via parentId', () => {
     const table = snap.nodes.find((n) => n.role === 'table')!;
     const rows = snap.nodes.filter((n) => n.role === 'row');
@@ -43,5 +47,60 @@ describe('fromFormeLayout (authoritative extractor)', () => {
     const cells = snap.nodes.filter((n) => n.role === 'cell');
     const rowIds = new Set(rows.map((r) => r.id));
     expect(cells.every((c) => c.parentId != null && rowIds.has(c.parentId))).toBe(true);
+  });
+});
+
+describe('fromFormeLayout shape guard', () => {
+  // Text hidden under an unrecognized node shape — the exact drift class that
+  // silently misclassified before. The guard must catch this loudly.
+  const drifted: FormeLayoutInfo = {
+    pages: [
+      {
+        width: 595,
+        height: 842,
+        contentX: 40,
+        contentY: 40,
+        contentWidth: 520,
+        contentHeight: 762,
+        elements: [
+          // Unrecognized nodeType carrying text directly (real text lives on
+          // TextLine children; this simulates that carrier being renamed).
+          { nodeType: 'GlyphRun', x: 40, y: 40, width: 200, height: 14, textContent: 'hidden treasure' },
+        ],
+      },
+    ],
+  };
+
+  it('throws FormeShapeError when layout text is dropped', () => {
+    expect(() => fromFormeLayout(drifted)).toThrow(FormeShapeError);
+    expect(() => fromFormeLayout(drifted)).toThrow(/dropped 1\/1 text fragment/);
+  });
+
+  it('names the unfamiliar nodeType in the error for debuggability', () => {
+    expect(() => fromFormeLayout(drifted)).toThrow(/GlyphRun/);
+  });
+
+  it('can be disabled via assertShape: false', () => {
+    expect(() => fromFormeLayout(drifted, { assertShape: false })).not.toThrow();
+  });
+
+  it('stays quiet on a benign unrecognized container with no dropped text', () => {
+    const benign: FormeLayoutInfo = {
+      pages: [
+        {
+          width: 595,
+          height: 842,
+          contentX: 40,
+          contentY: 40,
+          contentWidth: 520,
+          contentHeight: 762,
+          elements: [
+            { nodeType: 'FancyChart', x: 40, y: 40, width: 200, height: 100 }, // graphic, no text
+            { nodeType: 'Text', x: 40, y: 150, width: 200, height: 14, textContent: 'Caption text' },
+          ],
+        },
+      ],
+    };
+    expect(() => fromFormeLayout(benign)).not.toThrow();
   });
 });

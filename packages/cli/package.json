@@ -5,12 +5,20 @@
   "license": "MIT",
   "type": "module",
   "main": "./dist/cli.js",
-  "bin": { "pdf-testkit": "./bin/pdf-testkit.js" },
-  "files": ["dist", "bin"],
-  "scripts": { "build": "tsc --build", "test": "vitest run" },
+  "bin": {
+    "pdf-testkit": "./bin/pdf-testkit.js"
+  },
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "test": "vitest run"
+  },
   "dependencies": {
-    "@pdf-testkit/core": "*",
-    "@pdf-testkit/matcher-core": "*",
+    "@pdf-testkit/core": "0.1.0",
+    "@pdf-testkit/matcher-core": "0.1.0",
     "commander": "^12.1.0"
   }
 }

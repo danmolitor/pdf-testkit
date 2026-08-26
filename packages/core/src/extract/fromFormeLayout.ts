@@ -89,7 +89,7 @@ function isTextLeaf(role: NodeRole): boolean {
  */
 export function fromFormeLayout(
   layout: FormeLayoutInfo,
-  opts?: { source?: { name?: string }; createdAt?: string },
+  opts?: { source?: { name?: string }; createdAt?: string; assertShape?: boolean },
 ): StructuralSnapshot {
   const rawPages: RawPage[] = [];
   const rawNodes: RawNode[] = [];
@@ -196,7 +196,81 @@ export function fromFormeLayout(
     processChildren(page.elements, null, null, false);
   });
 
-  return finalize('formepdf', rawPages, rawNodes, opts);
+  const snapshot = finalize('formepdf', rawPages, rawNodes, opts);
+  if (opts?.assertShape !== false) assertShapeRecognized(layout, snapshot);
+  return snapshot;
+}
+
+/** Thrown when FormePDF's layout shape no longer matches what this extractor
+ * understands — a broken contract on the authoritative fast path, which must
+ * fail loudly rather than silently produce a wrong diff. */
+export class FormeShapeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'FormeShapeError';
+  }
+}
+
+/**
+ * Guard against silent misclassification when FormePDF's runtime layout shape
+ * drifts (as it has before: `H1`..`H6`, `TextLine`, and the missing `Table`
+ * wrapper were all undocumented). Rather than allow-listing every nodeType
+ * (FormePDF emits many, and the set isn't fully documented — a strict list would
+ * false-throw on the next benign addition), assert the invariants this extractor
+ * depends on. Verified against @formepdf/core 0.12.0 runtime output (2026-08).
+ */
+function assertShapeRecognized(layout: FormeLayoutInfo, snapshot: StructuralSnapshot): void {
+  const fragments: string[] = [];
+  const nodeTypesSeen = new Set<string>();
+  let hasRow = false;
+  let hasCell = false;
+  let hasHeading = false;
+  for (const page of layout.pages) {
+    walk(page.elements, (el) => {
+      nodeTypesSeen.add(el.nodeType);
+      if (el.nodeType === 'TableRow' || el.nodeType === 'Row') hasRow = true;
+      if (el.nodeType === 'TableCell' || el.nodeType === 'Cell') hasCell = true;
+      if (/^H[1-6]$/.test(el.nodeType) || el.nodeType === 'Heading') hasHeading = true;
+      if (typeof el.textContent === 'string') {
+        const t = el.textContent.replace(/\s+/g, ' ').trim().toLowerCase();
+        if (t) fragments.push(t);
+      }
+    });
+  }
+  const context = `Seen FormePDF nodeTypes: [${[...nodeTypesSeen].sort().join(', ')}].`;
+
+  // 1. Every text fragment in the layout must be captured somewhere. Aggregate
+  //    (not per-node) so legitimately empty cells/blocks never false-trip.
+  if (fragments.length > 0) {
+    const haystack = snapshot.nodes.map((n) => n.normText ?? '').join('');
+    const missing = fragments.filter((f) => !haystack.includes(f));
+    if (missing.length > 0) {
+      throw new FormeShapeError(
+        `fromFormeLayout dropped ${missing.length}/${fragments.length} text fragment(s) from the ` +
+          `FormePDF layout (e.g. ${JSON.stringify(missing.slice(0, 3))}). The layout node shape has ` +
+          `likely changed; the nodeType→role mapping needs updating. ${context}`,
+      );
+    }
+  }
+
+  // 2. Text/table carriers present in the layout must produce their roles.
+  const produced = new Set(snapshot.nodes.map((n) => n.role));
+  if (hasRow && !produced.has('row')) {
+    throw new FormeShapeError(`Layout has TableRow nodes but none were extracted as rows. ${context}`);
+  }
+  if (hasCell && !produced.has('cell')) {
+    throw new FormeShapeError(`Layout has TableCell nodes but none were extracted as cells. ${context}`);
+  }
+  if (hasHeading && !produced.has('heading')) {
+    throw new FormeShapeError(`Layout has H1–H6/Heading nodes but none were extracted as headings. ${context}`);
+  }
+
+  // 3. Table synthesis sanity: a table with zero rows is malformed.
+  for (const node of snapshot.nodes) {
+    if (node.role === 'table' && node.table && node.table.rows === 0) {
+      throw new FormeShapeError(`Synthesized a table with zero rows — row grouping is broken. ${context}`);
+    }
+  }
 }
 
 /** Gather text from a node's subtree (TextLine carries it), collapsing space. */

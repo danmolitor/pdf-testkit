@@ -6,11 +6,35 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
-  "files": ["dist"],
-  "scripts": { "build": "tsc --build" },
-  "dependencies": { "@pdf-testkit/core": "*", "@pdf-testkit/matcher-core": "*" },
-  "peerDependencies": { "@jest/globals": ">=29", "expect": ">=29" },
-  "peerDependenciesMeta": { "@jest/globals": { "optional": true }, "expect": { "optional": true } },
-  "devDependencies": { "expect": "^29.7.0" }
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --build"
+  },
+  "dependencies": {
+    "@pdf-testkit/core": "0.1.0",
+    "@pdf-testkit/matcher-core": "0.1.0"
+  },
+  "peerDependencies": {
+    "@jest/globals": ">=29",
+    "expect": ">=29"
+  },
+  "peerDependenciesMeta": {
+    "@jest/globals": {
+      "optional": true
+    },
+    "expect": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "expect": "^29.7.0"
+  }
 }

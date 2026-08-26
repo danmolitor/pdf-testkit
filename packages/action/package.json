@@ -12,7 +12,7 @@
     "bundle": "ncc build src/main.ts -o dist --minify"
   },
   "dependencies": {
-    "@pdf-testkit/core": "*",
+    "@pdf-testkit/core": "0.1.0",
     "@actions/core": "^1.11.1",
     "@actions/github": "^6.0.0"
   },

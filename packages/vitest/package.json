@@ -6,9 +6,24 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
-  "files": ["dist"],
-  "scripts": { "build": "tsc --build", "test": "vitest run" },
-  "dependencies": { "@pdf-testkit/core": "*", "@pdf-testkit/matcher-core": "*" },
-  "peerDependencies": { "vitest": ">=1" }
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@pdf-testkit/core": "0.1.0",
+    "@pdf-testkit/matcher-core": "0.1.0"
+  },
+  "peerDependencies": {
+    "vitest": ">=1"
+  }
 }

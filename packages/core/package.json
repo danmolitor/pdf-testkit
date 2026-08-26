@@ -12,7 +12,9 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc --build",
     "test": "vitest run"
@@ -22,8 +24,12 @@
     "pdfjs-dist": "^4.10 || ^5"
   },
   "peerDependenciesMeta": {
-    "@formepdf/core": { "optional": true },
-    "pdfjs-dist": { "optional": true }
+    "@formepdf/core": {
+      "optional": true
+    },
+    "pdfjs-dist": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "pdfjs-dist": "^4.10.38"
