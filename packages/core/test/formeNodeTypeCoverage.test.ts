@@ -1,3 +1,6 @@
+import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { FORME_ROLE_BY_NODE_TYPE, FORME_INTENTIONALLY_UNMAPPED } from '@pdf-testkit/core';
 
@@ -12,9 +15,11 @@ import { FORME_ROLE_BY_NODE_TYPE, FORME_INTENTIONALLY_UNMAPPED } from '@pdf-test
  * consumes @formepdf/core as an external package (not a shared repo), the union
  * is pinned here as a literal list rather than imported.
  *
- * ⚠️ PINNED against @formepdf/core 0.12.1. MANUALLY re-verify this list against
- * `ElementNodeType` in @formepdf/core's src/index.ts whenever the @formepdf/core
- * dependency version bumps — same discipline as the shape guard's version pin.
+ * ⚠️ PINNED against @formepdf/core 0.12.1. This list is now AUTO-VERIFIED against
+ * the installed @formepdf/core in the "matches the installed package" test below,
+ * so a dependency bump that changes the union fails the build and names exactly
+ * what changed — you no longer have to remember to check by hand. Keep the
+ * version in this comment in sync when you update the list.
  */
 const FORMEPDF_ELEMENT_NODE_TYPES = [
   // Structural containers
@@ -76,3 +81,60 @@ describe('FormePDF ElementNodeType coverage', () => {
     expect(FORMEPDF_ELEMENT_NODE_TYPES).toHaveLength(31);
   });
 });
+
+/**
+ * Automatic drift check: read the ACTUAL `ElementNodeType` union from the
+ * installed @formepdf/core (a devDependency) and compare it to the pinned list.
+ * This turns the version pins (this list, the comment, the shape guard's
+ * comment) from "someone must remember to re-check on a bump" into "the build
+ * fails and tells you exactly what changed" — the same manual→automatic move
+ * used elsewhere (e.g. the coverage test above).
+ */
+describe('FormePDF ElementNodeType — installed-vs-pinned drift check', () => {
+  const installed = readInstalledElementNodeType();
+
+  it('pinned union matches the installed @formepdf/core exactly', () => {
+    const pinned = new Set<string>(FORMEPDF_ELEMENT_NODE_TYPES);
+    const actual = new Set(installed.values);
+    const addedUpstream = [...actual].filter((v) => !pinned.has(v)); // new in @formepdf/core
+    const removedUpstream = [...pinned].filter((v) => !actual.has(v)); // gone from @formepdf/core
+    expect(
+      { addedUpstream, removedUpstream },
+      `@formepdf/core@${installed.version} ElementNodeType has drifted from the pinned list.\n` +
+        `  Added upstream (need a disposition):   [${addedUpstream.join(', ')}]\n` +
+        `  Removed upstream (drop from the pin):  [${removedUpstream.join(', ')}]\n` +
+        `Fix: update FORMEPDF_ELEMENT_NODE_TYPES + its version comment to ${installed.version}, ` +
+        `give any new type a role in FORME_ROLE_BY_NODE_TYPE (or add it to ` +
+        `FORME_INTENTIONALLY_UNMAPPED with a reason), then update the shape-guard version comment.`,
+    ).toEqual({ addedUpstream: [], removedUpstream: [] });
+  });
+});
+
+/** Parse the ElementNodeType union out of the installed @formepdf/core's shipped
+ * .d.ts (the type is type-only — no runtime array to import). */
+function readInstalledElementNodeType(): { version: string; values: string[] } {
+  const require = createRequire(import.meta.url);
+  let main: string;
+  try {
+    main = require.resolve('@formepdf/core');
+  } catch {
+    throw new Error(
+      '@formepdf/core is not installed. It is a devDependency used to auto-verify the pinned ' +
+        'ElementNodeType union against the real package. Run `npm install`.',
+    );
+  }
+  const dtsPath = main.replace(/\.[cm]?js$/, '.d.ts');
+  const pkg = JSON.parse(readFileSync(join(dirname(dirname(main)), 'package.json'), 'utf8')) as {
+    version: string;
+  };
+  const dts = readFileSync(dtsPath, 'utf8');
+  const m = /export type ElementNodeType\s*=\s*([\s\S]*?);/.exec(dts);
+  if (!m) {
+    throw new Error(
+      `Could not find "export type ElementNodeType" in ${dtsPath}. It may have been renamed or ` +
+        `moved in @formepdf/core — update this parser and the pinned list together.`,
+    );
+  }
+  const values = [...m[1]!.matchAll(/'([^']+)'/g)].map((x) => x[1] as string);
+  return { version: pkg.version, values };
+}
