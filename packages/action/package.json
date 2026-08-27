@@ -1,6 +1,6 @@
 {
   "name": "@pdf-testkit/action",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "GitHub Action (comment-only) that posts pdf-testkit semantic diffs on a PR",
   "license": "MIT",
   "private": true,
@@ -12,7 +12,7 @@
     "bundle": "ncc build src/main.ts -o dist --minify"
   },
   "dependencies": {
-    "@pdf-testkit/core": "^0.1.3",
+    "@pdf-testkit/core": "^0.1.4",
     "@actions/core": "^1.11.1",
     "@actions/github": "^6.0.0"
   },
