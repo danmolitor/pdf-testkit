@@ -26,8 +26,18 @@ export async function fromPdf(
     perPage.push(await extractTextRuns(page));
   }
 
-  // Heading model is doc-wide so levels are consistent across pages.
-  const headingModel = buildHeadingModel(perPage.flatMap((p) => p.runs));
+  // Detect tables up front and collect the runs they consume, so the heading
+  // model can be built from PROSE only. Table cell text is often voluminous and,
+  // in HTML/CSS output, smaller than body prose; left in, it drags the
+  // char-count-weighted body-size baseline down and mis-flags paragraphs as
+  // headings. The doc-wide model keeps heading levels consistent across pages.
+  const pageTables = perPage.map((pg) => detectTables(pg.runs));
+  const consumed = new Set<PdfTextRun>();
+  for (const tables of pageTables) {
+    for (const t of tables) for (const row of t.rows) for (const cell of row.cells) for (const r of cell.runs) consumed.add(r);
+  }
+  const proseRuns = perPage.flatMap((p) => p.runs).filter((r) => !consumed.has(r));
+  const headingModel = buildHeadingModel(proseRuns.length > 0 ? proseRuns : perPage.flatMap((p) => p.runs));
 
   const rawPages: RawPage[] = [];
   const rawNodes: RawNode[] = [];
@@ -43,8 +53,7 @@ export async function fromPdf(
     });
 
     const overflowOf = buildOverflowModel(pg.runs, pg.width);
-    const tables = detectTables(pg.runs);
-    const consumed = new Set<PdfTextRun>();
+    const tables = pageTables[pageIndex] ?? [];
 
     for (const table of tables) {
       const tableTempId = nextId();

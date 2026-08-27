@@ -42,7 +42,12 @@ export async function extractTextRuns(
 
   const raw: PdfTextRun[] = [];
   for (const it of items) {
-    if (it.str.length === 0) continue;
+    // Skip whitespace-only items. Some producers (react-pdf, PDFKit, Chrome)
+    // emit inter-column space glyphs; if kept, mergeRuns chains through them
+    // (word + spaces + word), collapsing a whole table row into one run and
+    // erasing the columns table detection needs. Real word spacing is still
+    // reconstructed from the inter-run gap below.
+    if (it.str.trim().length === 0) continue;
     const t = it.transform;
     const x = t[4] ?? 0;
     const yBottom = t[5] ?? 0;

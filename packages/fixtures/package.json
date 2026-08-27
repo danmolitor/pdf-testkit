@@ -22,5 +22,11 @@
     "directory": "packages/fixtures"
   },
   "homepage": "https://github.com/danmolitor/pdf-testkit#readme",
-  "bugs": "https://github.com/danmolitor/pdf-testkit/issues"
+  "bugs": "https://github.com/danmolitor/pdf-testkit/issues",
+  "devDependencies": {
+    "@react-pdf/renderer": "^4.8.1",
+    "@types/pdfkit": "^0.17.6",
+    "pdfkit": "^0.20.1",
+    "puppeteer-core": "^25.9.0"
+  }
 }
