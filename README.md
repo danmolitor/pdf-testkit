@@ -1,5 +1,9 @@
 # pdf-testkit
 
+[![npm](https://img.shields.io/npm/v/@pdf-testkit/vitest.svg)](https://www.npmjs.com/package/@pdf-testkit/vitest)
+[![CI](https://github.com/danmolitor/pdf-testkit/actions/workflows/ci.yml/badge.svg)](https://github.com/danmolitor/pdf-testkit/actions/workflows/ci.yml)
+[![license: MIT](https://img.shields.io/npm/l/@pdf-testkit/vitest.svg)](./LICENSE)
+
 **Semantic regression testing for generated PDFs.**
 
 `pdf-testkit` understands your document — pages, headings, tables, layout — instead of its
