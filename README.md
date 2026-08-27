@@ -101,20 +101,61 @@ pdf-testkit diff a.pdf b.pdf --fail-on warn --min-confidence 0.7
 Exit code is the contract: **0** = clean (or below the `--fail-on` gate), **1** = regression.
 Inputs may be `.pdf` or a `.json` snapshot/LayoutInfo, interchangeably.
 
-### GitHub Action (comment-only)
+### In CI
+
+Two ways to run pdf-testkit in a pipeline; use either or both.
+
+**1. As part of your test suite (simplest).** `toMatchPDFSnapshot` is just a test, so any CI that
+runs your tests already runs it. Commit the baselines in `__pdf_snapshots__/`; a structural
+regression fails the build, and a *missing* baseline fails on CI rather than being silently
+created (pdf-testkit detects `CI`).
 
 ```yaml
-- run: pdf-testkit snapshot dist/invoice.pdf --out current.json
-- uses: your-org/pdf-testkit/packages/action@v0.1
-  with:
-    baseline: baselines/invoice.json   # committed to your repo
-    current: current.json
-    fail-on: error
+# .github/workflows/pdf-tests.yml
+name: PDF tests
+on: [pull_request]
+jobs:
+  pdf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm ci
+      - run: npm test        # your Vitest/Jest suite, incl. toMatchPDFSnapshot
 ```
 
-It posts (and updates) a single PR comment with the semantic diff and fails the check per
-`fail-on`. There's no hosted storage — baselines are just files you commit. Committed `.json`
-snapshots are recommended so the runner needs no PDF-parsing step.
+**2. As a PR comment (the GitHub Action).** Posts (and updates) one comment with the semantic diff
+and gates the check on `fail-on`. No hosted storage — baselines are files you commit.
+
+```yaml
+# .github/workflows/pdf-diff.yml
+name: PDF diff
+on: [pull_request]
+permissions:
+  contents: read
+  pull-requests: write            # REQUIRED — the Action posts a PR comment
+jobs:
+  pdf-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm ci                # incl. @pdf-testkit/cli (+ pdfjs-dist if snapshotting a .pdf)
+      # produce the current document however your app builds it, then snapshot it:
+      - run: npx pdf-testkit snapshot dist/invoice.pdf --out current.json
+      - uses: danmolitor/pdf-testkit/packages/action@v0.1.2
+        with:
+          baseline: baselines/invoice.json   # committed to your repo
+          current: current.json              # a raw .pdf works too (needs pdfjs-dist)
+          fail-on: error                      # error | warn | any
+```
+
+Seed the baseline once — `pdf-testkit snapshot dist/invoice.pdf --out baselines/invoice.json` —
+and commit it; the Action diffs each PR's `current.json` against it. Committing `.json` snapshots
+(both baseline and current) keeps the runner free of PDF parsing; pass raw `.pdf` paths only if
+`pdfjs-dist` is installed. Pin the Action to a released tag (`@v0.1.2`), not a branch.
 
 ## How it works
 
