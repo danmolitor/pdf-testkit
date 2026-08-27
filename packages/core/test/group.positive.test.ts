@@ -165,6 +165,74 @@ describe('groupEvents — direction symmetry', () => {
   });
 });
 
+describe('groupEvents — a table that spills across an existing page break', () => {
+  /**
+   * The FormePDF invoice again, but with the padding raised just enough to push
+   * the last rows onto a page that already existed. The page *count* never
+   * changes, and that used to be the only trigger for continuation detection —
+   * so the fragment appearing at the top of page 2 was read as a brand-new
+   * table, and the diff announced "table added (4×5)" for rows that had merely
+   * flowed over. Whether a table wraps and whether the document gained a page
+   * are independent facts; treating one as evidence of the other is the bug.
+   */
+  const cell = (id: string, parentId: string, page: number, order: number, text: string) =>
+    node({ id, role: 'cell', text, parentId, pageIndex: page, order, bbox: { x: 48, y: 100 + order * 20, width: 172, height: 20 } });
+
+  /** A table fragment: `rows` rows of 3 cells, ids namespaced by `tag`. */
+  const fragment = (tag: string, page: number, top: number, rows: number, startOrder: number) => {
+    const tableId = `${page}:table:${tag}`;
+    const out = [
+      node({
+        id: tableId, role: 'table', text: null, pageIndex: page, order: startOrder,
+        table: { rows, cols: 3 },
+        bbox: { x: 48, y: top, width: 516, height: rows * 20 },
+      }),
+    ];
+    for (let r = 0; r < rows; r++) {
+      const rowId = `${page}:row:${tag}${r}`;
+      out.push(node({
+        id: rowId, role: 'row', text: null, parentId: tableId, pageIndex: page,
+        order: startOrder + 1 + r * 4, bbox: { x: 48, y: top + r * 20, width: 516, height: 20 },
+      }));
+      for (let c = 0; c < 3; c++) {
+        out.push(cell(`${page}:cell:${tag}${r}${c}`, rowId, page, startOrder + 2 + r * 4 + c, `${tag}-r${r}c${c}`));
+      }
+    }
+    return out;
+  };
+
+  // Page 1 already exists in the baseline — it holds the appendix. All that
+  // changes is where the table stops.
+  const appendix = (page: number, order: number, y: number) =>
+    node({ id: `${page}:text:appendix`, text: 'Appendix A', pageIndex: page, order, bbox: { x: 48, y, width: 200, height: 14 } });
+
+  const base = snapshot([...fragment('0', 0, 300, 3, 0), appendix(1, 0, 48)], { pageCount: 2 });
+  const next = snapshot(
+    [...fragment('0', 0, 300, 3, 0), ...fragment('0', 1, 48, 2, 0), appendix(1, 100, 200)],
+    { pageCount: 2 },
+  );
+
+  const result = diffSnapshots(base, next);
+  const groups = groupEvents(base, next, result.events);
+
+  it('reads the new fragment as the same table continuing, not a second table', () => {
+    const table = groups.find((g) => g.kind === 'table-resized');
+    expect(table).toBeDefined();
+    expect(table!.summary).toBe('table grew +2 rows, +6 cells (3×3 → 5×3), now spans pages 1–2');
+  });
+
+  it('puts the whole spilled fragment in that one group', () => {
+    const table = groups.find((g) => g.kind === 'table-resized')!;
+    // The fragment itself, 2 rows, 6 cells.
+    expect(table.events).toHaveLength(9);
+    expect(groups.some((g) => g.summary.startsWith('table added'))).toBe(false);
+  });
+
+  it('loses nothing', () => {
+    expectLosslessView(groups, result.events);
+  });
+});
+
 describe('groupEvents — synthetic cases', () => {
   it('collapses a contiguous run of shifted elements into one cascade', () => {
     const base = Array.from({ length: 8 }, (_, i) =>

@@ -220,6 +220,56 @@ describe('groupEvents — unrelated changes are NOT collapsed', () => {
     expectLossless(groups, result.events);
   });
 
+  /**
+   * Continuation detection used to fire only when the page count changed, which
+   * made it impossible to over-reach and also impossible to be right about a
+   * table that wraps within a fixed page count. Now that the trigger is
+   * structural, these two are the cases it must still refuse: a second table
+   * that happens to sit on the following page is not a continuation just because
+   * it is a table.
+   */
+  const band = (id: string, page: number, y: number, rows: number, cols: number, order = 0) =>
+    node({
+      id, role: 'table', text: null, pageIndex: page, order,
+      table: { rows, cols }, bbox: { x: 48, y, width: 516, height: rows * 20 },
+    });
+
+  it('does not treat a differently-shaped table on the next page as a continuation', () => {
+    // Same left edge and width — a single-column layout gives every full-bleed
+    // table those — but four columns cannot be the overflow of a three-column
+    // table, because a split preserves the columns.
+    const base = snapshot([band('0:table:0', 0, 500, 3, 3)], { pageCount: 2 });
+    const next = snapshot([band('0:table:0', 0, 500, 3, 3), band('1:table:0', 1, 48, 2, 4)], { pageCount: 2 });
+
+    const result = diffSnapshots(base, next);
+    const groups = groupEvents(base, next, result.events);
+
+    expect(groups.some((g) => g.kind === 'table-resized')).toBe(false);
+    expectLossless(groups, result.events);
+  });
+
+  it('does not treat a table introduced under its own heading as a continuation', () => {
+    // Identical columns and geometry, on the very next page — everything the
+    // geometric test looks at agrees. What settles it is that something else
+    // starts higher up the page: a table resuming after a break is the first
+    // thing on it, so anything above means this one was newly begun.
+    const base = snapshot([band('0:table:0', 0, 500, 3, 3)], { pageCount: 2 });
+    const next = snapshot(
+      [
+        band('0:table:0', 0, 500, 3, 3),
+        node({ id: '1:heading:0', role: 'heading', text: 'Appendix B', pageIndex: 1, order: 0, headingLevel: 2, bbox: { x: 48, y: 48, width: 300, height: 20 } }),
+        band('1:table:0', 1, 100, 2, 3, 1),
+      ],
+      { pageCount: 2 },
+    );
+
+    const result = diffSnapshots(base, next);
+    const groups = groupEvents(base, next, result.events);
+
+    expect(groups.some((g) => g.kind === 'table-resized')).toBe(false);
+    expectLossless(groups, result.events);
+  });
+
   it('does not merge two same-delta pull-ups from different parts of the document', () => {
     // The deletion mirror of the first case in this file. Two separate deletions
     // each pull everything after them up one page; reporting "6 elements shifted

@@ -269,13 +269,17 @@ export function groupEvents(
     nextById,
     baseToNext,
     nextToBase,
-    contBase: continuationAnchors(baseNodes, baseRank, baseToNext, pageCountIdx !== -1),
-    contNext: continuationAnchors(nextNodes, nextRank, nextToBase, pageCountIdx !== -1),
+    contBase: continuationAnchors(baseNodes, baseRank, repeatedNormTexts(baseNodes)),
+    contNext: continuationAnchors(nextNodes, nextRank, repeated),
     eventIdxByBaseId,
     eventIdxByNextId,
   };
 
-  const tableGroups = new Map<string, number>(); // canonical table key -> group id
+  // Bucket first, open second. The headline event is whichever fragment of the
+  // chain reported one, which is not knowable until every member is in hand: a
+  // table that spills onto a page it did not previously reach is announced by
+  // the *new* fragment, not by the anchor the rows are attributed to.
+  const byTable = new Map<string, number[]>(); // canonical table key -> event indices
   for (let i = 0; i < events.length; i++) {
     if (claim[i] !== -1) continue;
     const e = events[i]!;
@@ -283,15 +287,20 @@ export function groupEvents(
 
     const key = owningTable(e, tables);
     if (key == null) continue;
+    const bucket = byTable.get(key);
+    if (bucket) bucket.push(i);
+    else byTable.set(key, [i]);
+  }
 
-    let gid = tableGroups.get(key);
-    if (gid == null) {
-      const rootIdx = tableRootIdx(key, tables);
-      if (rootIdx == null || claim[rootIdx] !== -1) continue;
-      gid = open('table-resized', rootIdx, '');
-      tableGroups.set(key, gid);
-    }
-    attach(gid, i);
+  const tableGroups = new Map<string, number>(); // canonical table key -> group id
+  for (const [key, members] of byTable) {
+    // A chain whose fragments all survived intact reports nothing of its own;
+    // the earliest row/cell change then stands in as the headline.
+    const rootIdx = tableRootIdx(key, tables) ?? members[0]!;
+    if (claim[rootIdx] !== -1) continue;
+    const gid = open('table-resized', rootIdx, '');
+    tableGroups.set(key, gid);
+    for (const i of members) attach(gid, i);
   }
   for (const [key, gid] of tableGroups) {
     const g = groups[gid]!;
@@ -567,41 +576,87 @@ function furnitureSummary(pageCount: SemanticEvent, extra: number): string {
 
 // ── Rule 1 helpers ──────────────────────────────────────────────────────────
 
+/** Point tolerance for "same horizontal band" / "same top edge". */
+const SAME_BAND_PTS = 2;
+
 /**
- * Within one snapshot, map every table fragment that exists only on this side to
- * the nearest preceding fragment the matcher recognised. A table crossing a page
- * break is reported by the extractor as two whole tables, and which side holds
- * the extra fragment depends purely on which way the change went — so this runs
- * over the baseline and the new snapshot alike, keyed off `paired` (this side's
- * ids that the matcher resolved to a counterpart).
+ * Within one snapshot, map every table fragment that is a continuation of an
+ * earlier one to the *head* of its chain. A table crossing a page break is
+ * reported by the extractor as two whole tables, so without this a table that
+ * wraps reads as two findings and the row counts in the headline are taken from
+ * one fragment instead of all of them.
  *
- * Pairing rather than event type is the anchor test on purpose: the surviving
- * fragment's event is filed under the *other* snapshot's id, so asking "does
- * this fragment have a non-additive event here" answers yes going forwards and
- * no going backwards, which is exactly how deletions stopped grouping.
+ * The evidence is structural, and deliberately so. This used to run only when
+ * the page count changed, on the reasoning that a table can only have started
+ * wrapping if the document grew — but whether a table wraps and whether the
+ * document gained a page are independent facts. Raise a cell's padding enough to
+ * push the last rows onto a page that already existed and the page count never
+ * moves, yet a fresh fragment appears; the diff then announced "table added" for
+ * rows that had merely flowed over.
  *
- * Only when the page count changed: absent that, a second table really is a
- * second table and deserves its own top-level event.
+ * So a fragment continues its predecessor when all four agree, which no pair of
+ * genuinely distinct tables satisfies by accident:
+ *
+ *  - it sits on the very next page (a table cannot resume two pages later);
+ *  - the column count matches (a split preserves the columns);
+ *  - it occupies the same horizontal band, to the point;
+ *  - nothing else on its page starts above it, since a continuation can only
+ *    begin at the top of the content area. Repeated furniture is exempt: a
+ *    running header is page-anchored and sits above everything by construction.
+ *
+ * Pairing is not consulted. It is a property of the *diff*, not of this
+ * snapshot's structure, and asking it here is what tied the rule's behaviour to
+ * the direction of the change in the first place.
  */
 function continuationAnchors(
   nodes: StructuralNode[],
   rank: Map<string, number>,
-  paired: Map<string, string>,
-  pageCountChanged: boolean,
+  repeated: Set<string>,
 ): Map<string, string> {
   const out = new Map<string, string>();
-  if (!pageCountChanged) return out;
-
   const tables = nodes
     .filter((n) => n.role === 'table')
     .sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
+  if (tables.length < 2) return out;
 
-  let anchor: string | null = null;
+  const byPage = new Map<number, StructuralNode[]>();
+  for (const n of nodes) {
+    const bucket = byPage.get(n.pageIndex);
+    if (bucket) bucket.push(n);
+    else byPage.set(n.pageIndex, [n]);
+  }
+  // Descendants share the fragment's top edge or sit below it, so they never
+  // trip this; only genuine preceding content does.
+  const startsPage = (t: StructuralNode): boolean =>
+    !(byPage.get(t.pageIndex) ?? []).some(
+      (n) =>
+        n.bbox.y < t.bbox.y - SAME_BAND_PTS &&
+        !(n.normText != null && repeated.has(n.normText)),
+    );
+
+  let head: StructuralNode | null = null;
+  let tail: StructuralNode | null = null;
   for (const t of tables) {
-    if (paired.has(t.id)) anchor = t.id;
-    else if (anchor != null) out.set(t.id, anchor);
+    if (tail != null && continuesFrom(tail, t) && startsPage(t)) {
+      out.set(t.id, head!.id);
+      tail = t;
+      continue;
+    }
+    head = t;
+    tail = t;
   }
   return out;
+}
+
+/** The geometric half of the continuation test: same columns, same band, next page. */
+function continuesFrom(prev: StructuralNode, cand: StructuralNode): boolean {
+  return (
+    cand.pageIndex === prev.pageIndex + 1 &&
+    cand.table?.cols != null &&
+    cand.table.cols === prev.table?.cols &&
+    Math.abs(cand.bbox.x - prev.bbox.x) <= SAME_BAND_PTS &&
+    Math.abs(cand.bbox.width - prev.bbox.width) <= SAME_BAND_PTS
+  );
 }
 
 /**
@@ -642,12 +697,14 @@ function owningTable(e: SemanticEvent, t: TableCtx): string | null {
   if (!table) return null;
 
   // Rows and cells under a continuation fragment belong to its anchor table.
+  // Name the chain from the new snapshot wherever it exists there, so a removal
+  // and an addition on the same table land under one key; a table present only
+  // in the baseline keeps a `base:` key rather than being forced into an id it
+  // does not have, which is what once made deletions ungroupable.
   const anchorId = cont.get(table.id) ?? table.id;
-  const nextId = fromBase ? t.baseToNext.get(anchorId) : anchorId;
-  if (nextId != null && t.eventIdxByNextId.has(nextId)) return `next:${nextId}`;
-  const baseId = fromBase ? anchorId : t.nextToBase.get(anchorId);
-  if (baseId != null && t.eventIdxByBaseId.has(baseId)) return `base:${baseId}`;
-  return null;
+  if (!fromBase) return `next:${anchorId}`;
+  const asNext = t.baseToNext.get(anchorId);
+  return asNext != null ? `next:${asNext}` : `base:${anchorId}`;
 }
 
 function splitKey(key: string): { side: 'base' | 'next'; id: string } {
@@ -655,10 +712,26 @@ function splitKey(key: string): { side: 'base' | 'next'; id: string } {
   return { side: key.slice(0, at) as 'base' | 'next', id: key.slice(at + 1) };
 }
 
-/** The event index that heads this table's group. */
+/**
+ * The event index that heads this table's group: the earliest event reported
+ * against any fragment of the chain, on either side. Looking only at the anchor
+ * misses the common case — when a table starts wrapping, the anchor fragment is
+ * unremarkable and it is the newly-appeared fragment that carries the event.
+ */
 function tableRootIdx(key: string, t: TableCtx): number | undefined {
   const { side, id } = splitKey(key);
-  return side === 'next' ? t.eventIdxByNextId.get(id) : t.eventIdxByBaseId.get(id);
+  const baseAnchor = side === 'base' ? id : t.nextToBase.get(id);
+  const nextAnchor = side === 'next' ? id : t.baseToNext.get(id);
+  const candidates: number[] = [];
+  for (const f of fragmentsOf(baseAnchor, t.baseById, t.contBase)) {
+    const idx = t.eventIdxByBaseId.get(f.id);
+    if (idx != null) candidates.push(idx);
+  }
+  for (const f of fragmentsOf(nextAnchor, t.nextById, t.contNext)) {
+    const idx = t.eventIdxByNextId.get(f.id);
+    if (idx != null) candidates.push(idx);
+  }
+  return candidates.length === 0 ? undefined : Math.min(...candidates);
 }
 
 /** The anchor fragment plus every continuation fragment that points at it. */
