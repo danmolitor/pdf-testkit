@@ -1,7 +1,7 @@
 import { rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FormeLayoutInfo } from '@pdf-testkit/core';
 import '@pdf-testkit/vitest';
 
@@ -58,8 +58,19 @@ function layout(variant: 'base' | 'structural-change'): FormeLayoutInfo {
 }
 
 describe('toMatchPDFSnapshot (vitest adapter, self-referential)', () => {
+  // This suite exercises the LOCAL create -> match -> change -> accept flow,
+  // which requires the matcher to write baselines. On CI the matcher
+  // deliberately refuses to create a missing baseline (that guard is covered by
+  // matcher-core.test.ts), so isolate this suite from the CI env var.
+  let savedCI: string | undefined;
   beforeAll(() => {
+    savedCI = process.env.CI;
+    delete process.env.CI;
     rmSync(SNAP_DIR, { recursive: true, force: true });
+  });
+  afterAll(() => {
+    if (savedCI === undefined) delete process.env.CI;
+    else process.env.CI = savedCI;
   });
 
   it('creates a baseline on first run and matches on the second', async () => {
