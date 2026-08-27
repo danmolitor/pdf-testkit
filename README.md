@@ -198,7 +198,7 @@ Human-facing output therefore groups events by cause:
   → 117 related events collapsed; re-run with --verbose for the full list.
 ```
 
-Three rules keep this trustworthy:
+Four rules keep this trustworthy:
 
 - **It is a view, never a filter.** The union of every group is exactly the input event list.
   `--verbose` (CLI), `PDF_TESTKIT_VERBOSE=1` (matchers), and a `<details>` block (Action comment)
@@ -210,6 +210,9 @@ Three rules keep this trustworthy:
 - **A group never absorbs an event more severe than its root.** An error riding along inside a
   warn-level group is ejected to its own row, so severity means the same thing in the summary as
   it does in the gate.
+- **It reads the same in both directions.** Shrinking that table back from 19 rows to 5 is the
+  same 123 events and the same 6 groups, worded the other way round. Deleting content is not a
+  second-class diff.
 
 ## Reliability by producer
 

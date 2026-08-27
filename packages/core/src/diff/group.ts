@@ -27,7 +27,7 @@ import { matchNodes } from './match.js';
 
 export type GroupKind =
   | 'single'
-  | 'table-grew'
+  | 'table-resized'
   | 'page-shift-cascade'
   | 'new-page-furniture'
   | 'value-changed';
@@ -42,6 +42,37 @@ export interface EventGroup {
   summary: string;
   /** Every member, root first. Union across all groups === the input, exactly. */
   events: SemanticEvent[];
+}
+
+/**
+ * A group under construction. `label` is how a cascade should name this group
+ * when citing it as a cause — "the table's growth" rather than the group's own
+ * full summary line.
+ */
+interface RawGroup {
+  kind: GroupKind;
+  rootIdx: number;
+  members: number[];
+  summary: string;
+  label?: string;
+}
+
+/**
+ * Everything the table rules need to reason about a logical table in *either*
+ * direction. Growing and shrinking a document are the same change seen from
+ * opposite ends, so every lookup here comes in a base/next pair: a rule that
+ * only indexes the new snapshot silently stops working the moment content is
+ * deleted instead of inserted.
+ */
+interface TableCtx {
+  baseById: Map<string, StructuralNode>;
+  nextById: Map<string, StructuralNode>;
+  baseToNext: Map<string, string>;
+  nextToBase: Map<string, string>;
+  contBase: Map<string, string>;
+  contNext: Map<string, string>;
+  eventIdxByBaseId: Map<string, number>;
+  eventIdxByNextId: Map<string, number>;
 }
 
 const RANK: Record<Severity, number> = { info: 0, warn: 1, error: 2 };
@@ -86,6 +117,7 @@ export function groupEvents(
 
   const baseById = byId(baseNodes);
   const nextById = byId(nextNodes);
+  const baseRank = readingRank(baseNodes);
   const nextRank = readingRank(nextNodes);
 
   // Re-run the matcher rather than threading its result out of `diffSnapshots`:
@@ -93,7 +125,11 @@ export function groupEvents(
   // (which base node became which next node) that the flat event list drops.
   const { pairs } = matchNodes(baseNodes, nextNodes);
   const baseToNext = new Map<string, string>();
-  for (const p of pairs) baseToNext.set(p.base.id, p.next.id);
+  const nextToBase = new Map<string, string>();
+  for (const p of pairs) {
+    baseToNext.set(p.base.id, p.next.id);
+    nextToBase.set(p.next.id, p.base.id);
+  }
 
   // Event indices that carry a resolvable node, split by which snapshot the id
   // belongs to. `element-removed` is the only one pointing at the baseline.
@@ -112,14 +148,41 @@ export function groupEvents(
 
   const pageCountIdx = events.findIndex((e) => e.type === 'page-count-changed');
   const repeated = repeatedNormTexts(nextNodes);
+  /** The document lost pages rather than gaining them. */
+  const shed = next.pageCount < baseline.pageCount;
+
+  /**
+   * Where a node sits in the *new* document's reading order. A removed node has
+   * no position there at all, so it borrows the slot just after the last
+   * surviving thing that preceded it in the baseline — which is exactly where
+   * its absence is felt, and lets a deletion be cited as the cause of a shift.
+   */
+  const baseByRank = new Map<number, StructuralNode>();
+  for (const n of baseNodes) {
+    const r = baseRank.get(n.id);
+    if (r != null) baseByRank.set(r, n);
+  }
+  const rankInNext = (nodeId: string): number | null => {
+    const direct = nextRank.get(nodeId);
+    if (direct != null) return direct;
+    const from = baseRank.get(nodeId);
+    if (from == null) return null;
+    for (let r = from - 1; r >= 0; r--) {
+      const prev = baseByRank.get(r);
+      const mapped = prev == null ? undefined : baseToNext.get(prev.id);
+      const rank = mapped == null ? undefined : nextRank.get(mapped);
+      if (rank != null) return rank + 0.5;
+    }
+    return -0.5; // Removed from the very top of the document.
+  };
 
   /** -1 = unclaimed. Otherwise the index of the group this event belongs to. */
   const claim: number[] = new Array(events.length).fill(-1);
-  const groups: { kind: GroupKind; rootIdx: number; members: number[]; summary: string }[] = [];
+  const groups: RawGroup[] = [];
 
-  const open = (kind: GroupKind, rootIdx: number, summary: string): number => {
+  const open = (kind: GroupKind, rootIdx: number, summary: string, label?: string): number => {
     const id = groups.length;
-    groups.push({ kind, rootIdx, members: [rootIdx], summary });
+    groups.push({ kind, rootIdx, members: [rootIdx], summary, label });
     claim[rootIdx] = id;
     return id;
   };
@@ -144,56 +207,97 @@ export function groupEvents(
     attach(id, removedIdx);
   }
 
-  // ── Rule 3 — new-page furniture ────────────────────────────────────────────
+  // ── Rule 3 — page furniture ────────────────────────────────────────────────
   // A page that did not exist in the baseline brings a fresh copy of every
-  // repeated fixed element with it. Those adds are a restatement of
-  // `page-count-changed`, not independent findings.
+  // repeated fixed element with it; a page that goes away takes its copy with
+  // it. Either way those adds/removes are a restatement of `page-count-changed`,
+  // not independent findings — so the rule reads whichever snapshot holds the
+  // pages that only exist on one side.
   if (pageCountIdx !== -1) {
+    const side = shed
+      ? {
+          type: 'element-removed' as const,
+          nodes: baseNodes,
+          index: baseById,
+          eventIdx: eventIdxByBaseId,
+          repeated: repeatedNormTexts(baseNodes),
+          firstGonePage: next.pageCount,
+        }
+      : {
+          type: 'element-added' as const,
+          nodes: nextNodes,
+          index: nextById,
+          eventIdx: eventIdxByNextId,
+          repeated,
+          firstGonePage: baseline.pageCount,
+        };
     const furniture: number[] = [];
-    for (const root of addedSubtreeRoots(events, claim, nextById, eventIdxByNextId)) {
-      if (root.node.pageIndex < baseline.pageCount) continue;
-      const subtree = collectSubtree(root.node, nextNodes);
-      if (!subtree.some((n) => n.normText != null && repeated.has(n.normText))) continue;
+    for (const root of subtreeRoots(side.type, events, claim, side.index, side.eventIdx)) {
+      if (root.node.pageIndex < side.firstGonePage) continue;
+      // A table row is content wherever it sits. Line-item text can repeat
+      // across pages by coincidence, and mistaking that for a running footer
+      // would drag half a table into the page-count group.
+      if (root.node.role === 'table' || TABLE_PARTS.has(root.node.role)) continue;
+      const subtree = collectSubtree(root.node, side.nodes);
+      if (!subtree.some((n) => n.normText != null && side.repeated.has(n.normText))) continue;
       for (const n of subtree) {
-        const idx = eventIdxByNextId.get(n.id);
+        const idx = side.eventIdx.get(n.id);
         if (idx != null && claim[idx] === -1) furniture.push(idx);
       }
     }
     if (furniture.length > 0) {
-      const id = open('new-page-furniture', pageCountIdx, furnitureSummary(events[pageCountIdx]!, furniture.length));
+      const id = open(
+        'new-page-furniture',
+        pageCountIdx,
+        furnitureSummary(events[pageCountIdx]!, furniture.length),
+        'the page-count change',
+      );
       for (const idx of furniture) attach(id, idx);
     }
   }
 
-  // ── Rule 1 — table subtree growth ──────────────────────────────────────────
+  // ── Rule 1 — table subtree resize ──────────────────────────────────────────
   // Restricted to row/cell/table roles on purpose. "Anything added under a node
   // that changed" would swallow a new paragraph inside a container that merely
   // moved; a row or a cell, by contrast, has no meaning apart from its table.
-  // A table that starts spanning pages gains a continuation fragment, which the
-  // extractor reports as a whole new table. Resolve those to the fragment that
-  // actually paired, so one logical table produces one group rather than two.
-  const continuationOf = continuationFragments(events, nextById, eventIdxByNextId, nextRank, pageCountIdx !== -1);
+  // A table that spans a page break carries a continuation fragment, which the
+  // extractor reports as a whole separate table. Those are resolved back to the
+  // fragment that actually paired — on *both* sides, since the fragment that
+  // exists alone lives in the baseline when the table shrank.
+  const tables: TableCtx = {
+    baseById,
+    nextById,
+    baseToNext,
+    nextToBase,
+    contBase: continuationAnchors(baseNodes, baseRank, baseToNext, pageCountIdx !== -1),
+    contNext: continuationAnchors(nextNodes, nextRank, nextToBase, pageCountIdx !== -1),
+    eventIdxByBaseId,
+    eventIdxByNextId,
+  };
 
-  const tableGroups = new Map<string, number>(); // primary next table id -> group id
+  const tableGroups = new Map<string, number>(); // canonical table key -> group id
   for (let i = 0; i < events.length; i++) {
     if (claim[i] !== -1) continue;
     const e = events[i]!;
     if (e.type !== 'element-added' && e.type !== 'element-removed') continue;
 
-    const owner = owningTable(e, baseById, nextById, baseToNext, eventIdxByNextId, continuationOf);
-    if (owner == null) continue;
+    const key = owningTable(e, tables);
+    if (key == null) continue;
 
-    let gid = tableGroups.get(owner);
+    let gid = tableGroups.get(key);
     if (gid == null) {
-      const rootIdx = eventIdxByNextId.get(owner);
+      const rootIdx = tableRootIdx(key, tables);
       if (rootIdx == null || claim[rootIdx] !== -1) continue;
-      gid = open('table-grew', rootIdx, '');
-      tableGroups.set(owner, gid);
+      gid = open('table-resized', rootIdx, '');
+      tableGroups.set(key, gid);
     }
     attach(gid, i);
   }
-  for (const [tableId, gid] of tableGroups) {
-    groups[gid]!.summary = tableSummary(tableId, baseById, nextById, baseToNext, groups[gid]!.members, events);
+  for (const [key, gid] of tableGroups) {
+    const g = groups[gid]!;
+    const { summary, label } = tableSummary(key, tables, g.members, events);
+    g.summary = summary;
+    g.label = label;
   }
 
   // ── Rule 2 — uniform page-shift cascade ────────────────────────────────────
@@ -223,9 +327,10 @@ export function groupEvents(
     // down. Split the bucket into contiguous document runs and judge each on
     // its own, so a genuine two-region regression reports as two findings
     // rather than one false "everything shifted" line.
-    for (const run of contiguousRuns(ranked, nextNodes, nextRank, eventIdxByNextId, repeated)) {
+    const movedIds = new Set(ranked.map((m) => (events[m.i] as { nodeId: string }).nodeId));
+    for (const run of contiguousRuns(ranked, nextNodes, nextRank, eventIdxByNextId, repeated, movedIds)) {
       if (run.length < MIN_CASCADE_MEMBERS) continue;
-      const cause = nearestPrecedingCause(groups, events, nextRank, run[0]!.rank, pageCountIdx);
+      const cause = nearestPrecedingCause(groups, events, rankInNext, run[0]!.rank, pageCountIdx);
       if (cause == null) continue; // No root -> no group. "These moved, cause unknown" helps nobody.
       const id = open(
         'page-shift-cascade',
@@ -253,10 +358,7 @@ export function groupEvents(
  * demoted into a warn-level summary. Severity has to mean the same thing
  * everywhere or the gate stops meaning anything.
  */
-function finalize(
-  raw: { kind: GroupKind; rootIdx: number; members: number[]; summary: string }[],
-  events: SemanticEvent[],
-): EventGroup[] {
+function finalize(raw: RawGroup[], events: SemanticEvent[]): EventGroup[] {
   // `at` is the root's index in the original event list; it orders groups within
   // a severity band so output follows the order the diff engine reported.
   const built: { at: number; group: EventGroup }[] = [];
@@ -410,23 +512,27 @@ function repeatedNormTexts(nodes: StructuralNode[]): Set<string> {
   return out;
 }
 
-/** Added nodes whose parent is not itself added — the tops of added subtrees. */
-function addedSubtreeRoots(
+/**
+ * Nodes added (or removed) whose parent was not itself added (or removed) — the
+ * tops of the subtrees that appeared or vanished wholesale.
+ */
+function subtreeRoots(
+  type: 'element-added' | 'element-removed',
   events: SemanticEvent[],
   claim: number[],
-  nextById: Map<string, StructuralNode>,
-  eventIdxByNextId: Map<string, number>,
+  index: Map<string, StructuralNode>,
+  eventIdx: Map<string, number>,
 ): { idx: number; node: StructuralNode }[] {
-  const isAdded = (id: string): boolean => {
-    const idx = eventIdxByNextId.get(id);
-    return idx != null && events[idx]!.type === 'element-added';
+  const isSameChange = (id: string): boolean => {
+    const idx = eventIdx.get(id);
+    return idx != null && events[idx]!.type === type;
   };
   const out: { idx: number; node: StructuralNode }[] = [];
   events.forEach((e, i) => {
-    if (claim[i] !== -1 || e.type !== 'element-added') return;
-    const node = nextById.get(e.nodeId);
+    if (claim[i] !== -1 || e.type !== type) return;
+    const node = index.get(e.nodeId);
     if (!node) return;
-    if (node.parentId != null && isAdded(node.parentId)) return;
+    if (node.parentId != null && isSameChange(node.parentId)) return;
     out.push({ idx: i, node });
   });
   return out;
@@ -451,122 +557,188 @@ function collectSubtree(root: StructuralNode, nodes: StructuralNode[]): Structur
 }
 
 function furnitureSummary(pageCount: SemanticEvent, extra: number): string {
-  const to = pageCount.type === 'page-count-changed' ? pageCount.to : 0;
-  return `${pageCount.message} (+${extra} repeated header/footer element${extra === 1 ? '' : 's'} on the new page${to > 0 ? '' : 's'})`;
+  if (pageCount.type !== 'page-count-changed') return pageCount.message;
+  const shed = pageCount.to < pageCount.from;
+  const pages = Math.abs(pageCount.to - pageCount.from);
+  const noun = `repeated header/footer element${extra === 1 ? '' : 's'}`;
+  const where = `${shed ? 'removed' : 'new'} page${pages === 1 ? '' : 's'}`;
+  return `${pageCount.message} (${shed ? '-' : '+'}${extra} ${noun} on the ${where})`;
 }
 
 // ── Rule 1 helpers ──────────────────────────────────────────────────────────
 
 /**
- * Map each *added* table node to the table fragment that already paired. Only
- * applies when the page count grew: absent that, a new table really is a new
- * table and deserves its own top-level event.
+ * Within one snapshot, map every table fragment that exists only on this side to
+ * the nearest preceding fragment the matcher recognised. A table crossing a page
+ * break is reported by the extractor as two whole tables, and which side holds
+ * the extra fragment depends purely on which way the change went — so this runs
+ * over the baseline and the new snapshot alike, keyed off `paired` (this side's
+ * ids that the matcher resolved to a counterpart).
+ *
+ * Pairing rather than event type is the anchor test on purpose: the surviving
+ * fragment's event is filed under the *other* snapshot's id, so asking "does
+ * this fragment have a non-additive event here" answers yes going forwards and
+ * no going backwards, which is exactly how deletions stopped grouping.
+ *
+ * Only when the page count changed: absent that, a second table really is a
+ * second table and deserves its own top-level event.
  */
-function continuationFragments(
-  events: SemanticEvent[],
-  nextById: Map<string, StructuralNode>,
-  eventIdxByNextId: Map<string, number>,
-  nextRank: Map<string, number>,
-  pageCountGrew: boolean,
+function continuationAnchors(
+  nodes: StructuralNode[],
+  rank: Map<string, number>,
+  paired: Map<string, string>,
+  pageCountChanged: boolean,
 ): Map<string, string> {
   const out = new Map<string, string>();
-  if (!pageCountGrew) return out;
+  if (!pageCountChanged) return out;
 
-  const eventTypeOf = (id: string): string | undefined => {
-    const i = eventIdxByNextId.get(id);
-    return i == null ? undefined : events[i]!.type;
-  };
-  // The primary is the earliest table carrying a non-additive event, i.e. one
-  // the matcher recognised as the same table as in the baseline.
-  let primary: string | null = null;
-  for (const [id, n] of nextById) {
-    if (n.role !== 'table') continue;
-    const type = eventTypeOf(id);
-    if (type == null || type === 'element-added') continue;
-    if (primary == null || (nextRank.get(id) ?? 0) < (nextRank.get(primary) ?? 0)) primary = id;
-  }
-  if (primary == null) return out;
+  const tables = nodes
+    .filter((n) => n.role === 'table')
+    .sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
 
-  for (const [id, n] of nextById) {
-    if (n.role === 'table' && id !== primary && eventTypeOf(id) === 'element-added') out.set(id, primary);
+  let anchor: string | null = null;
+  for (const t of tables) {
+    if (paired.has(t.id)) anchor = t.id;
+    else if (anchor != null) out.set(t.id, anchor);
   }
   return out;
 }
 
-/** The primary next-snapshot table id that owns this add/remove, or null. */
-function owningTable(
-  e: SemanticEvent,
-  baseById: Map<string, StructuralNode>,
-  nextById: Map<string, StructuralNode>,
-  baseToNext: Map<string, string>,
-  eventIdxByNextId: Map<string, number>,
-  continuationOf: Map<string, string>,
-): string | null {
+/**
+ * The canonical key of the logical table this add/remove belongs to, or null.
+ *
+ * The key is side-prefixed (`next:<id>` / `base:<id>`) because a table only
+ * present in the baseline has no new-snapshot id to be named by, and forcing one
+ * is what made deletions ungroupable: every descendant of a vanished fragment
+ * failed its `baseToNext` lookup and fell out as a loose row.
+ */
+function owningTable(e: SemanticEvent, t: TableCtx): string | null {
   const fromBase = e.type === 'element-removed';
-  const idx = fromBase ? baseById : nextById;
-  const node = 'nodeId' in e ? idx.get(e.nodeId) : undefined;
+  const index = fromBase ? t.baseById : t.nextById;
+  const cont = fromBase ? t.contBase : t.contNext;
+  const node = 'nodeId' in e ? index.get(e.nodeId) : undefined;
   if (!node) return null;
 
-  if (node.role === 'table') return fromBase ? null : (continuationOf.get(node.id) ?? null);
-  if (!TABLE_PARTS.has(node.role)) return null;
-
-  let cur: StructuralNode | undefined = node;
-  while (cur?.parentId != null) {
-    const parent: StructuralNode | undefined = idx.get(cur.parentId);
-    if (!parent) return null;
-    if (parent.role === 'table') {
-      const nextId = fromBase ? baseToNext.get(parent.id) : parent.id;
-      if (nextId == null) return null;
-      // Rows and cells under a continuation fragment belong to the same table.
-      const primary = continuationOf.get(nextId) ?? nextId;
-      return eventIdxByNextId.has(primary) ? primary : null;
+  let table: StructuralNode | undefined;
+  if (node.role === 'table') {
+    // A table's own add/remove groups only when it is a continuation fragment of
+    // a table that survived; otherwise it is a finding in its own right.
+    const anchor = cont.get(node.id);
+    if (anchor == null) return null;
+    table = index.get(anchor);
+  } else {
+    if (!TABLE_PARTS.has(node.role)) return null;
+    let cur: StructuralNode | undefined = node;
+    while (cur?.parentId != null) {
+      const parent: StructuralNode | undefined = index.get(cur.parentId);
+      if (!parent) return null;
+      if (parent.role === 'table') {
+        table = parent;
+        break;
+      }
+      cur = parent;
     }
-    cur = parent;
   }
+  if (!table) return null;
+
+  // Rows and cells under a continuation fragment belong to its anchor table.
+  const anchorId = cont.get(table.id) ?? table.id;
+  const nextId = fromBase ? t.baseToNext.get(anchorId) : anchorId;
+  if (nextId != null && t.eventIdxByNextId.has(nextId)) return `next:${nextId}`;
+  const baseId = fromBase ? anchorId : t.nextToBase.get(anchorId);
+  if (baseId != null && t.eventIdxByBaseId.has(baseId)) return `base:${baseId}`;
   return null;
 }
 
+function splitKey(key: string): { side: 'base' | 'next'; id: string } {
+  const at = key.indexOf(':');
+  return { side: key.slice(0, at) as 'base' | 'next', id: key.slice(at + 1) };
+}
+
+/** The event index that heads this table's group. */
+function tableRootIdx(key: string, t: TableCtx): number | undefined {
+  const { side, id } = splitKey(key);
+  return side === 'next' ? t.eventIdxByNextId.get(id) : t.eventIdxByBaseId.get(id);
+}
+
+/** The anchor fragment plus every continuation fragment that points at it. */
+function fragmentsOf(
+  anchorId: string | undefined,
+  index: Map<string, StructuralNode>,
+  cont: Map<string, string>,
+): StructuralNode[] {
+  if (anchorId == null) return [];
+  const anchor = index.get(anchorId);
+  const out = anchor ? [anchor] : [];
+  for (const [id, a] of cont) {
+    if (a !== anchorId) continue;
+    const n = index.get(id);
+    if (n) out.push(n);
+  }
+  return out.sort((a, b) => a.pageIndex - b.pageIndex || a.order - b.order);
+}
+
+/**
+ * The table's before/after shape is read from the *structure* — every fragment
+ * on each side — rather than from the group's member events. Scanning members
+ * only ever sees the fragments that changed, so on a shrink it would miss the
+ * baseline's continuation fragment entirely and report a 21-row table as a
+ * 9-row one. Row and cell counts still come from the members, so the numbers in
+ * the headline always agree with what is inside the group.
+ */
 function tableSummary(
-  tableId: string,
-  baseById: Map<string, StructuralNode>,
-  nextById: Map<string, StructuralNode>,
-  baseToNext: Map<string, string>,
+  key: string,
+  t: TableCtx,
   members: number[],
   events: SemanticEvent[],
-): string {
-  let baseTable: StructuralNode | undefined;
-  for (const [baseId, nextId] of baseToNext) {
-    if (nextId === tableId) baseTable = baseById.get(baseId);
-  }
-  // Every table fragment in the group, including the paired one.
-  const fragments = [nextById.get(tableId)].filter(Boolean) as StructuralNode[];
+): { summary: string; label: string } {
+  const { side, id } = splitKey(key);
+  const baseFrags = fragmentsOf(side === 'base' ? id : t.nextToBase.get(id), t.baseById, t.contBase);
+  const nextFrags = fragmentsOf(side === 'next' ? id : t.baseToNext.get(id), t.nextById, t.contNext);
+
   let rows = 0;
   let cells = 0;
   for (const m of members) {
     const e = events[m]!;
     if (!('nodeId' in e)) continue;
     const removed = e.type === 'element-removed';
-    const n = (removed ? baseById : nextById).get(e.nodeId);
+    const n = (removed ? t.baseById : t.nextById).get(e.nodeId);
     if (!n) continue;
     const sign = removed ? -1 : 1;
     if (n.role === 'row') rows += sign;
     else if (n.role === 'cell') cells += sign;
-    // Only added tables: the group's own root is the primary fragment, already
-    // seeded above, and counting it twice doubles the reported row total.
-    else if (n.role === 'table' && e.type === 'element-added') fragments.push(n);
   }
-  const pages = [...new Set(fragments.map((f) => f.pageIndex + 1))].sort((a, b) => a - b);
-  const shape = baseTable?.table
-    ? `${baseTable.table.rows}×${baseTable.table.cols} → ${fragments.reduce((s, f) => s + (f.table?.rows ?? 0), 0)}×${fragments[0]?.table?.cols ?? '?'}`
-    : 'table';
   const delta = [
     rows !== 0 ? `${rows > 0 ? '+' : ''}${rows} row${Math.abs(rows) === 1 ? '' : 's'}` : null,
     cells !== 0 ? `${cells > 0 ? '+' : ''}${cells} cell${Math.abs(cells) === 1 ? '' : 's'}` : null,
   ]
     .filter(Boolean)
     .join(', ');
+
+  if (baseFrags.length === 0) {
+    return { summary: `table added (${dims(nextFrags)})${delta ? `, ${delta}` : ''}`, label: 'the new table' };
+  }
+  if (nextFrags.length === 0) {
+    return { summary: `table removed (${dims(baseFrags)})${delta ? `, ${delta}` : ''}`, label: 'the removed table' };
+  }
+
+  const before = totalRows(baseFrags);
+  const after = totalRows(nextFrags);
+  const verb = after < before ? 'shrank' : after > before ? 'grew' : 'changed';
+  const pages = [...new Set(nextFrags.map((f) => f.pageIndex + 1))].sort((a, b) => a - b);
   const span = pages.length > 1 ? `, now spans pages ${pages[0]}–${pages[pages.length - 1]}` : '';
-  return `table ${rows < 0 ? 'shrank' : 'grew'} ${delta} (${shape})${span}`;
+  return {
+    summary: `table ${verb}${delta ? ` ${delta}` : ''} (${dims(baseFrags)} → ${dims(nextFrags)})${span}`,
+    label: verb === 'shrank' ? 'the table shrinking' : "the table's growth",
+  };
+}
+
+function totalRows(frags: StructuralNode[]): number {
+  return frags.reduce((s, f) => s + (f.table?.rows ?? 0), 0);
+}
+
+function dims(frags: StructuralNode[]): string {
+  return `${totalRows(frags)}×${frags[0]?.table?.cols ?? '?'}`;
 }
 
 // ── Rule 2 helpers ──────────────────────────────────────────────────────────
@@ -577,29 +749,31 @@ function tableSummary(
  * `page-count-changed` has no position, so it is the last-resort cause.
  */
 function nearestPrecedingCause(
-  groups: { kind: GroupKind; rootIdx: number; members: number[]; summary: string }[],
+  groups: RawGroup[],
   events: SemanticEvent[],
-  nextRank: Map<string, number>,
+  rankInNext: (nodeId: string) => number | null,
   firstMemberRank: number,
   pageCountIdx: number,
-): { kind: GroupKind; summary: string } | null {
-  let best: { kind: GroupKind; summary: string } | null = null;
-  let bestRank = -1;
+): { summary: string; label?: string } | null {
+  let best: { summary: string; label?: string } | null = null;
+  let bestRank = -Infinity;
   for (const g of groups) {
-    // A cascade is an effect, never a cause; citing one would produce
-    // "N moved following M moved following the real thing".
-    if (g.kind === 'page-shift-cascade') continue;
+    // A cascade is an effect, never a cause; citing one would produce "N moved
+    // following M moved following the real thing". A value change swaps one
+    // string for another in place, so it cannot push content across a page
+    // boundary and is never the reason a page shifted either.
+    if (g.kind === 'page-shift-cascade' || g.kind === 'value-changed') continue;
     const root = events[g.rootIdx]!;
     if (!('nodeId' in root)) continue;
-    const rank = nextRank.get(root.nodeId);
+    const rank = rankInNext(root.nodeId);
     if (rank == null || rank >= firstMemberRank) continue;
     if (rank > bestRank) {
       bestRank = rank;
-      best = { kind: g.kind, summary: g.summary };
+      best = { summary: g.summary, label: g.label };
     }
   }
   if (best) return best;
-  if (pageCountIdx !== -1) return { kind: 'single', summary: events[pageCountIdx]!.message };
+  if (pageCountIdx !== -1) return { summary: events[pageCountIdx]!.message };
   return null;
 }
 
@@ -622,21 +796,35 @@ function contiguousRuns(
   nextRank: Map<string, number>,
   eventIdxByNextId: Map<string, number>,
   repeated: Set<string>,
+  movedIds: Set<string>,
 ): { i: number; rank: number }[][] {
   const byRank = new Map<number, StructuralNode>();
   for (const n of nextNodes) {
     const r = nextRank.get(n.id);
     if (r != null) byRank.set(r, n);
   }
-  const isFurniture = (n: StructuralNode): boolean =>
-    collectSubtree(n, nextNodes).some((d) => d.normText != null && repeated.has(d.normText));
+  const cache = new Map<string, StructuralNode[]>();
+  const subtree = (n: StructuralNode): StructuralNode[] => {
+    let s = cache.get(n.id);
+    if (!s) cache.set(n.id, (s = collectSubtree(n, nextNodes)));
+    return s;
+  };
 
   const bridges = (from: number, to: number): boolean => {
     for (let r = from + 1; r < to; r++) {
       const node = byRank.get(r);
       if (!node) return false;
       if (eventIdxByNextId.has(node.id)) continue; // changed for its own reasons
-      if (isFurniture(node)) continue; // page-anchored, correctly did not move
+      const inside = subtree(node);
+      // Page-anchored, and so correctly did not move.
+      if (inside.some((d) => d.normText != null && repeated.has(d.normText))) continue;
+      // An anonymous layout container whose own children are in this very run.
+      // Containers have no text to match on, so the matcher pairs them by
+      // position and they often end up without a move event even though
+      // everything they hold moved. That is a gap in the pairing, not content
+      // that stayed behind — the evidence comes from the run itself, so this
+      // can never bridge two unrelated regions together.
+      if (inside.some((d) => d.id !== node.id && movedIds.has(d.id))) continue;
       return false;
     }
     return true;
@@ -660,7 +848,7 @@ function cascadeSummary(
   delta: number,
   idxs: number[],
   events: SemanticEvent[],
-  cause: { kind: GroupKind; summary: string },
+  cause: { summary: string; label?: string },
 ): string {
   const hops = [
     ...new Set(
@@ -673,13 +861,7 @@ function cascadeSummary(
     .filter(Boolean)
     .sort();
   const dir = delta > 0 ? `+${delta}` : `${delta}`;
-  const label =
-    cause.kind === 'table-grew'
-      ? "the table's growth"
-      : cause.kind === 'new-page-furniture'
-        ? 'the page-count change'
-        : cause.summary;
-  return `${count} elements shifted ${dir} page${Math.abs(delta) === 1 ? '' : 's'} (${hops.join(', ')}) following ${label}`;
+  return `${count} elements shifted ${dir} page${Math.abs(delta) === 1 ? '' : 's'} (${hops.join(', ')}) following ${cause.label ?? cause.summary}`;
 }
 
 // ── Shared helpers ──────────────────────────────────────────────────────────

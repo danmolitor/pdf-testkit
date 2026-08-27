@@ -200,7 +200,66 @@ describe('groupEvents — unrelated changes are NOT collapsed', () => {
     const result = diffSnapshots(base, next);
     const groups = groupEvents(base, next, result.events);
 
-    expect(groups.some((g) => g.kind === 'table-grew')).toBe(false);
+    expect(groups.some((g) => g.kind === 'table-resized')).toBe(false);
+    expectLossless(groups, result.events);
+  });
+
+  it('does not fold a wholly deleted table into the one that survived', () => {
+    // The mirror of the case above, and the one the direction fix could plausibly
+    // over-reach on: making deletions groupable must not make *every* deleted
+    // table a continuation of its neighbour.
+    const table = (id: string, order: number, rows: number, y: number) =>
+      node({ id, role: 'table', text: null, order, table: { rows, cols: 3 }, bbox: { x: 40, y, width: 300, height: rows * 20 } });
+    const base = snapshot([table('0:table:0', 0, 2, 100), table('0:table:1', 1, 3, 300)]);
+    const next = snapshot([table('0:table:0', 0, 2, 100)]);
+
+    const result = diffSnapshots(base, next);
+    const groups = groupEvents(base, next, result.events);
+
+    expect(groups.some((g) => g.kind === 'table-resized')).toBe(false);
+    expectLossless(groups, result.events);
+  });
+
+  it('does not merge two same-delta pull-ups from different parts of the document', () => {
+    // The deletion mirror of the first case in this file. Two separate deletions
+    // each pull everything after them up one page; reporting "6 elements shifted
+    // -1 page" would claim a single cause that does not exist.
+    const base = snapshot(
+      [
+        node({ id: '0:text:0', text: 'header note', pageIndex: 0, order: 0 }),
+        node({ id: '1:text:0', text: 'alpha one', pageIndex: 1, order: 0 }),
+        node({ id: '1:text:1', text: 'alpha two', pageIndex: 1, order: 1 }),
+        node({ id: '1:text:2', text: 'alpha three', pageIndex: 1, order: 2 }),
+        node({ id: '1:text:3', text: 'stable one', pageIndex: 1, order: 3 }),
+        node({ id: '1:text:4', text: 'stable two', pageIndex: 1, order: 4 }),
+        node({ id: '2:text:0', text: 'beta one', pageIndex: 2, order: 0 }),
+        node({ id: '2:text:1', text: 'beta two', pageIndex: 2, order: 1 }),
+        node({ id: '2:text:2', text: 'beta three', pageIndex: 2, order: 2 }),
+      ],
+      { pageCount: 3 },
+    );
+    const next = snapshot(
+      [
+        node({ id: '0:text:0', text: 'header note', pageIndex: 0, order: 0 }),
+        node({ id: '0:text:1', text: 'alpha one', pageIndex: 0, order: 1 }),
+        node({ id: '0:text:2', text: 'alpha two', pageIndex: 0, order: 2 }),
+        node({ id: '0:text:3', text: 'alpha three', pageIndex: 0, order: 3 }),
+        node({ id: '1:text:0', text: 'stable one', pageIndex: 1, order: 0 }),
+        node({ id: '1:text:1', text: 'stable two', pageIndex: 1, order: 1 }),
+        node({ id: '1:text:2', text: 'beta one', pageIndex: 1, order: 2 }),
+        node({ id: '1:text:3', text: 'beta two', pageIndex: 1, order: 3 }),
+        node({ id: '1:text:4', text: 'beta three', pageIndex: 1, order: 4 }),
+      ],
+      { pageCount: 2 },
+    );
+
+    const result = diffSnapshots(base, next);
+    const groups = groupEvents(base, next, result.events);
+
+    const cascades = groups.filter((g) => g.kind === 'page-shift-cascade');
+    expect(cascades).toHaveLength(2);
+    expect(cascades.map((g) => g.events.length)).toEqual([3, 3]);
+    expect(cascades.some((g) => g.events.length === 6)).toBe(false);
     expectLossless(groups, result.events);
   });
 });

@@ -29,72 +29,139 @@ function expectLosslessView(groups: { events: unknown[] }[], events: unknown[]):
   expect(new Set(union)).toEqual(new Set(events));
 }
 
-describe('groupEvents — the 19-line-item invoice', () => {
-  const result = diffSnapshots(INVOICE_BASELINE, INVOICE_GROWN);
-  const groups = groupEvents(INVOICE_BASELINE, INVOICE_GROWN, result.events);
-
-  it('is the 123-event diff this feature was built for', () => {
-    expect(result.events).toHaveLength(123);
-  });
-
-  it('collapses to a summary a person can actually read', () => {
-    expect(groups.length).toBeLessThanOrEqual(8);
-    expect(groups.map((g) => g.kind).sort()).toEqual([
-      'new-page-furniture',
-      'page-shift-cascade',
-      'table-grew',
-      'value-changed',
-      'value-changed',
-      'value-changed',
-    ]);
-  });
-
-  it('loses nothing — the union of all groups is exactly the event list', () => {
-    expectLosslessView(groups, result.events);
-  });
-
-  it('names the table growth as one finding with its real shape', () => {
-    const table = groups.find((g) => g.kind === 'table-grew')!;
-    expect(table.summary).toContain('+15 rows');
-    expect(table.summary).toContain('6×4 → 21×5');
-    // The bulk of the diff: 97 subtree adds plus the table's own event.
-    expect(table.events.length).toBeGreaterThan(90);
-  });
-
-  it('attributes the downstream page shifts to the table, by delta not destination', () => {
-    const cascade = groups.find((g) => g.kind === 'page-shift-cascade')!;
-    expect(cascade.summary).toContain('shifted +1 page');
-    expect(cascade.summary).toContain("following the table's growth");
-    // Two different destinations (1→2 and 2→3) under one cause — summarising as
-    // "everything moved to page 3" would be flatly wrong.
-    expect(cascade.summary).toContain('1→2, 2→3');
-    expect(cascade.events.every((e) => e.type === 'element-moved-to-different-page')).toBe(true);
-  });
-
-  it('folds the new page\'s repeated footer into the page-count change', () => {
-    const furniture = groups.find((g) => g.kind === 'new-page-furniture')!;
-    expect(furniture.root.type).toBe('page-count-changed');
-    expect(furniture.summary).toContain('repeated header/footer element');
-  });
-
-  it('keeps the three changed totals visible instead of burying them', () => {
-    // The one thing on this diff a reviewer must not miss: three amounts moved
-    // by roughly 3x. Currently they sit at rows 16 and 121-123 of 123.
-    const values = groups.filter((g) => g.kind === 'value-changed');
-    expect(values.map((g) => g.summary)).toEqual([
+/**
+ * The same fixture pair, run both ways.
+ *
+ * Growing a document and shrinking it are one change seen from opposite ends, so
+ * every rule here has to hold for both. The first version of this module
+ * collapsed the growth into 6 findings and the identical deletion into 86,
+ * because every index it consulted was built from the *new* snapshot — a table
+ * fragment that only exists in the baseline had nothing to be looked up by, so
+ * all 72 of its descendants fell out as loose rows. A suite that only ever ran
+ * one direction could not see that, and did not.
+ */
+const DIRECTIONS = [
+  {
+    name: 'growing the line-item table from 5 rows to 19',
+    baseline: INVOICE_BASELINE,
+    next: INVOICE_GROWN,
+    table: { delta: '+15 rows, +81 cells', shape: '(6×4 → 21×5)', verb: 'table grew' },
+    // The table only spans a page break in the grown document.
+    span: 'now spans pages 1–2',
+    cascade: { dir: 'shifted +1 page', hops: '1→2, 2→3', cause: "following the table's growth" },
+    furniture: '+4 repeated header/footer elements on the new page',
+    values: [
       'text "$14350.00" → "$41158.00"',
       'text "$1148.00" → "$3292.64"',
       'text "$15498.00" → "$44450.64"',
-    ]);
-  });
+    ],
+  },
+  {
+    name: 'shrinking it back from 19 rows to 5',
+    baseline: INVOICE_GROWN,
+    next: INVOICE_BASELINE,
+    table: { delta: '-15 rows, -81 cells', shape: '(21×5 → 6×4)', verb: 'table shrank' },
+    span: null,
+    cascade: { dir: 'shifted -1 page', hops: '2→1, 3→2', cause: 'following the table shrinking' },
+    furniture: '-4 repeated header/footer elements on the removed page',
+    values: [
+      'text "$41158.00" → "$14350.00"',
+      'text "$3292.64" → "$1148.00"',
+      'text "$44450.64" → "$15498.00"',
+    ],
+  },
+] as const;
 
-  it('sorts errors above warnings', () => {
-    expect(groups[0]!.severity).toBe('error');
-    expect(groups.slice(1).every((g) => g.severity === 'warn')).toBe(true);
-  });
+for (const d of DIRECTIONS) {
+  describe(`groupEvents — the 19-line-item invoice, ${d.name}`, () => {
+    const result = diffSnapshots(d.baseline, d.next);
+    const groups = groupEvents(d.baseline, d.next, result.events);
 
-  it('never disagrees with its own root about severity', () => {
-    for (const g of groups) expect(g.severity).toBe(g.root.severity);
+    it('is the 123-event diff this feature was built for', () => {
+      expect(result.events).toHaveLength(123);
+    });
+
+    it('collapses to a summary a person can actually read', () => {
+      expect(groups.length).toBeLessThanOrEqual(8);
+      expect(groups.map((g) => g.kind).sort()).toEqual([
+        'new-page-furniture',
+        'page-shift-cascade',
+        'table-resized',
+        'value-changed',
+        'value-changed',
+        'value-changed',
+      ]);
+    });
+
+    it('loses nothing — the union of all groups is exactly the event list', () => {
+      expectLosslessView(groups, result.events);
+    });
+
+    it('names the table resize as one finding with its real shape', () => {
+      const table = groups.find((g) => g.kind === 'table-resized')!;
+      // Both ends of the shape come from the fragments that exist on each side,
+      // not from the events in the group: on the shrink, the baseline's second
+      // fragment produces no event of its own, and reading the shape off the
+      // event list reported a 21-row table as a 9-row one.
+      expect(table.summary).toBe(
+        `${d.table.verb} ${d.table.delta} ${d.table.shape}${d.span ? `, ${d.span}` : ''}`,
+      );
+      // The bulk of the diff: 97 subtree adds/removes plus the table's own event.
+      expect(table.events).toHaveLength(98);
+    });
+
+    it('attributes the downstream page shifts to the table, by delta not destination', () => {
+      const cascade = groups.find((g) => g.kind === 'page-shift-cascade')!;
+      expect(cascade.summary).toContain(d.cascade.dir);
+      expect(cascade.summary).toContain(d.cascade.cause);
+      // Two different destinations under one cause — summarising as "everything
+      // moved to page 3" would be flatly wrong.
+      expect(cascade.summary).toContain(d.cascade.hops);
+      expect(cascade.events).toHaveLength(14);
+      expect(cascade.events.every((e) => e.type === 'element-moved-to-different-page')).toBe(true);
+    });
+
+    it('folds the appearing/vanishing page\'s repeated footer into the page-count change', () => {
+      const furniture = groups.find((g) => g.kind === 'new-page-furniture')!;
+      expect(furniture.root.type).toBe('page-count-changed');
+      expect(furniture.summary).toContain(d.furniture);
+    });
+
+    it('keeps the three changed totals visible instead of burying them', () => {
+      // The one thing on this diff a reviewer must not miss: three amounts
+      // moved by roughly 3x, sitting at rows 16 and 121-123 of 123.
+      const values = groups.filter((g) => g.kind === 'value-changed');
+      expect(values.map((g) => g.summary)).toEqual([...d.values]);
+    });
+
+    it('never blames a value change for a page shift', () => {
+      // A string swapped for another in place cannot push content across a page
+      // boundary. Before the fix the shrink read "4 elements shifted -1 page
+      // following text "$44450.64" → "$15498.00"" — fluent and wrong.
+      for (const g of groups) expect(g.summary).not.toMatch(/following text "/);
+    });
+
+    it('sorts errors above warnings', () => {
+      expect(groups[0]!.severity).toBe('error');
+      expect(groups.slice(1).every((g) => g.severity === 'warn')).toBe(true);
+    });
+
+    it('never disagrees with its own root about severity', () => {
+      for (const g of groups) expect(g.severity).toBe(g.root.severity);
+    });
+  });
+}
+
+describe('groupEvents — direction symmetry', () => {
+  // Stated as its own contract rather than left implicit in the two suites
+  // above: a new rule that reads only one snapshot will pass every
+  // growth-direction assertion and fail here.
+  it('finds the same shape of change whichever way it ran', () => {
+    const shape = (a: StructuralSnapshot, b: StructuralSnapshot) => {
+      const result = diffSnapshots(a, b);
+      return groupEvents(a, b, result.events).map((g) => `${g.kind}:${g.events.length}`);
+    };
+    expect(shape(INVOICE_GROWN, INVOICE_BASELINE)).toEqual(shape(INVOICE_BASELINE, INVOICE_GROWN));
   });
 });
 
