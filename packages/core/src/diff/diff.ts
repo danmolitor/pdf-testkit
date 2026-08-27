@@ -120,6 +120,7 @@ export function diffSnapshots(
       type: 'element-removed',
       severity: severityOf('element-removed'),
       confidence: node.confidence,
+      nodeId: node.id,
       role: node.role,
       textPreview: textPreview(node.text),
       pageIndex: node.pageIndex,

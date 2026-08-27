@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 import { Command } from 'commander';
-import { diffSnapshots, serializeSnapshot, type DiffOptions } from '@pdf-testkit/core';
+import { diffSnapshots, groupEvents, serializeSnapshot, type DiffOptions } from '@pdf-testkit/core';
 import { loadAsSnapshot } from './load.js';
 import { formatHuman, shouldFail, type FailOn } from './format.js';
 
@@ -39,6 +39,7 @@ export function buildProgram(): Command {
     .argument('<a>', 'baseline (.pdf or .json)')
     .argument('<b>', 'new run (.pdf or .json)')
     .option('--json', 'emit the DiffResult as JSON to stdout')
+    .option('-v, --verbose', 'list every event instead of grouping related ones')
     .option('--min-confidence <n>', 'drop events below this confidence (0..1)', parseFloat)
     .option('--threshold <pts>', 'on-page movement (pts) that counts as a move', parseFloat)
     .option('--fail-on <level>', 'error | warn | any', 'error')
@@ -46,7 +47,7 @@ export function buildProgram(): Command {
       async (
         a: string,
         b: string,
-        opts: { json?: boolean; minConfidence?: number; threshold?: number; failOn?: string },
+        opts: { json?: boolean; verbose?: boolean; minConfidence?: number; threshold?: number; failOn?: string },
       ) => {
         const [sa, sb] = await Promise.all([loadAsSnapshot(a), loadAsSnapshot(b)]);
         const diffOpts: DiffOptions = {};
@@ -54,8 +55,13 @@ export function buildProgram(): Command {
         if (opts.threshold != null) diffOpts.positionThresholdPts = opts.threshold;
         const result = diffSnapshots(sa, sb, diffOpts);
 
+        // --json stays the full per-element list unconditionally: it is the
+        // machine contract, and grouping is presentation.
         if (opts.json) process.stdout.write(JSON.stringify(result, null, 2) + '\n');
-        else process.stdout.write(formatHuman(result, a, b) + '\n');
+        else {
+          const groups = opts.verbose ? null : groupEvents(sa, sb, result.events, diffOpts);
+          process.stdout.write(formatHuman(result, a, b, groups) + '\n');
+        }
 
         const failOn = normalizeFailOn(opts.failOn);
         if (shouldFail(result, failOn)) process.exitCode = 1;

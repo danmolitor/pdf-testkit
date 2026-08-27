@@ -1,6 +1,6 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
-import { diffSnapshots, loadSnapshotFromFile } from '@pdf-testkit/core';
+import { diffSnapshots, groupEvents, loadSnapshotFromFile } from '@pdf-testkit/core';
 import { COMMENT_MARKER, renderMarkdown, shouldFail, type FailOn } from './render.js';
 
 /**
@@ -24,7 +24,9 @@ export async function run(): Promise<void> {
     core.setOutput('changed', String(result.changed));
     core.setOutput('event-count', String(result.events.length));
 
-    const body = renderMarkdown(current, result);
+    // The outputs and the fail gate above read the full event list; grouping
+    // only shapes the comment, and every event still ships inside a <details>.
+    const body = renderMarkdown(current, result, groupEvents(base, next, result.events));
     core.summary.addRaw(body).write().catch(() => undefined);
 
     if (wantComment) await upsertComment(body);

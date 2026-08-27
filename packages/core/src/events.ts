@@ -70,6 +70,12 @@ export interface ElementAddedEvent extends BaseEvent {
 
 export interface ElementRemovedEvent extends BaseEvent {
   type: 'element-removed';
+  /**
+   * Id in the *baseline* snapshot — a removed node exists nowhere else. Every
+   * other event's `nodeId` refers to the new run; this one cannot, so callers
+   * resolving ids must pick the matching snapshot.
+   */
+  nodeId: string;
   role: NodeRole;
   textPreview: string;
   pageIndex: number;

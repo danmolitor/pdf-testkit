@@ -4,6 +4,7 @@ import {
   diffSnapshots,
   fromFormeLayout,
   fromPdf,
+  groupEvents,
   readSnapshotFile,
   writeSnapshotFile,
   type FormeLayoutInfo,
@@ -53,8 +54,16 @@ export async function assertMatchesPDFSnapshot(
   const pass = blocking.length === 0;
   return {
     pass,
-    message: () => (pass ? 'PDF snapshot matched' : formatFailure(result.events, path)),
+    message: () =>
+      pass
+        ? 'PDF snapshot matched'
+        : formatFailure(result.events, path, isVerbose() ? null : groupEvents(baseline, snapshot, result.events, opts)),
   };
+}
+
+function isVerbose(): boolean {
+  const v = process.env.PDF_TESTKIT_VERBOSE;
+  return v === '1' || v === 'true';
 }
 
 async function toSnapshot(received: MatcherInput): Promise<StructuralSnapshot> {

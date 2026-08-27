@@ -94,6 +94,7 @@ await expect(layout).toMatchPDFSnapshot(); // authoritative, no heuristics
 pdf-testkit snapshot invoice.pdf --out invoice.json   # extract a structural snapshot
 pdf-testkit diff a.pdf b.pdf                           # human-readable event list
 pdf-testkit diff base.json new.pdf --json             # machine-readable DiffResult
+pdf-testkit diff a.pdf b.pdf --verbose                 # every event, ungrouped
 pdf-testkit diff a.pdf b.pdf --fail-on warn --min-confidence 0.7
 ```
 
@@ -129,6 +130,41 @@ Because matching resolves *moved* vs *removed+added*, reordering untouched conte
 case edits, and sub-threshold jitter produce **no** events — that's the whole point. The same
 mechanism means an in-place text edit (same role, same box) is treated as the *same* node, so a
 pure content change with unchanged structure passes clean — see the scope note at the top.
+
+### Grouping
+
+One structural change fans out into many events. Growing an invoice's line-item table from 5 to
+19 rows emits **123** of them: the table's own subtree, the elements it pushed onto the next
+page, the new page's repeated footer, and — buried at rows 16 and 121–123 — the three totals
+that actually changed value. Every event is accurate and the list is still useless, because a
+reviewer scrolling past 123 rows approves without reading.
+
+Human-facing output therefore groups events by cause:
+
+```
+✗ 123 semantic changes in 6 groups (baseline.json → current.json):
+  ✗ page-count-changed  page count changed 2 → 3 (+4 repeated header/footer elements on the new page)  [5 events]
+  ⚠ table-moved  table grew +15 rows, +81 cells (6×4 → 21×5), now spans pages 1–2  [98 events]
+  ⚠ element-moved-to-different-page  14 elements shifted +1 page (1→2, 2→3) following the table's growth  [14 events]
+  ⚠ element-added  text "$14350.00" → "$41158.00"  [2 events]
+  ⚠ element-added  text "$1148.00" → "$3292.64"  [2 events]
+  ⚠ element-added  text "$15498.00" → "$44450.64"  [2 events]
+
+  → 117 related events collapsed; re-run with --verbose for the full list.
+```
+
+Three rules keep this trustworthy:
+
+- **It is a view, never a filter.** The union of every group is exactly the input event list.
+  `--verbose` (CLI), `PDF_TESTKIT_VERBOSE=1` (matchers), and a `<details>` block (Action comment)
+  all expand back to the full per-element list. `DiffResult`, `--json`, and the `fail-on` gate
+  never see grouping at all — machine consumers keep full resolution.
+- **A real content change is paired, not collapsed.** A removed and re-added value at the same
+  slot renders as `"$100.00" → "$1,250.00"` on its own row. Folding it into a downstream-cascade
+  summary would hide the one fact on this diff that matters.
+- **A group never absorbs an event more severe than its root.** An error riding along inside a
+  warn-level group is ejected to its own row, so severity means the same thing in the summary as
+  it does in the gate.
 
 ## Reliability by producer
 

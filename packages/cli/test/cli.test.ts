@@ -57,3 +57,44 @@ describe('pdf-testkit CLI', () => {
     expect(anyGate.code).toBe(0);
   });
 });
+
+/**
+ * Grouping is presentation only. The exit code and `--json` are the machine
+ * contract and must not notice it; `--verbose` must expand back to the exact
+ * flat list, or the "collapsed" footer is a lie.
+ */
+describe('pdf-testkit CLI — event grouping', () => {
+  const snapshotFixture = (name: string): string =>
+    fileURLToPath(new URL(`../../fixtures/snapshots/${name}.snapshot.json`, import.meta.url));
+  const baseline = snapshotFixture('invoice-baseline');
+  const grown = snapshotFixture('invoice-grown');
+
+  it('summarises the 123-event invoice diff by default', async () => {
+    const { code, stdout } = await run(['diff', baseline, grown]);
+    expect(code).toBe(1);
+    expect(stdout).toContain('123 semantic changes in 6 groups');
+    expect(stdout).toContain('117 related events collapsed; re-run with --verbose');
+    // header + 6 group lines + blank + footer.
+    expect(stdout.trim().split('\n')).toHaveLength(9);
+  });
+
+  it('--verbose prints every event and no grouping', async () => {
+    const { stdout } = await run(['diff', baseline, grown, '--verbose']);
+    expect(stdout).toContain('123 semantic changes');
+    expect(stdout).not.toContain('groups');
+    expect(stdout).not.toContain('collapsed');
+    expect(stdout.trim().split('\n')).toHaveLength(124); // header + 123 events
+  });
+
+  it('--json is untouched by grouping', async () => {
+    const { stdout } = await run(['diff', baseline, grown, '--json']);
+    const result = JSON.parse(stdout);
+    expect(result.events).toHaveLength(123);
+  });
+
+  it('gates the exit code on the full event list, not the group count', async () => {
+    // 6 groups but one of them is error-severity: the gate must still fire.
+    const { code } = await run(['diff', baseline, grown, '--fail-on', 'error']);
+    expect(code).toBe(1);
+  });
+});

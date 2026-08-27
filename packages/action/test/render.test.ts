@@ -1,5 +1,6 @@
+import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
-import type { DiffResult } from '@pdf-testkit/core';
+import { diffSnapshots, groupEvents, type DiffResult, type StructuralSnapshot } from '@pdf-testkit/core';
 import { COMMENT_MARKER, renderMarkdown, shouldFail } from '../src/render.js';
 
 const clean: DiffResult = { changed: false, events: [], baselineHash: 'sha256:a', newHash: 'sha256:a' };
@@ -38,6 +39,41 @@ describe('action markdown rendering', () => {
     expect(md).toContain('`page-count-changed`');
     expect(md).toContain('`table-moved`');
     expect(md).toContain('0.50'); // confidence column
+  });
+});
+
+describe('action markdown rendering — grouped', () => {
+  const snap = (name: string): StructuralSnapshot =>
+    JSON.parse(
+      readFileSync(new URL(`../../fixtures/snapshots/${name}.snapshot.json`, import.meta.url), 'utf8'),
+    ) as StructuralSnapshot;
+  const base = snap('invoice-baseline');
+  const next = snap('invoice-grown');
+  const result = diffSnapshots(base, next);
+  const groups = groupEvents(base, next, result.events);
+  const md = renderMarkdown('invoice.pdf', result, groups);
+
+  it('replaces 123 rows with one row per cause', () => {
+    expect(md).toContain('**123** semantic changes detected, grouped into **6**');
+    // The main table: header, separator, then exactly one row per group.
+    const rows = md.split('\n').filter((l) => l.startsWith('| 🔴 ') || l.startsWith('| 🟡 '));
+    expect(rows.length).toBeGreaterThan(groups.length);
+    expect(md).toContain("following the table's growth");
+  });
+
+  it('keeps every event one click away instead of discarding it', () => {
+    // A <details> block per multi-event group — GitHub renders these natively.
+    const multi = groups.filter((g) => g.events.length > 1);
+    expect(md.match(/<details>/g)).toHaveLength(multi.length);
+    for (const g of multi) expect(md).toContain(`— ${g.events.length} events</summary>`);
+    // Every individual message still appears somewhere in the comment body.
+    for (const e of result.events) expect(md).toContain(e.message.replace(/\|/g, '\\|'));
+  });
+
+  it('renders the flat list unchanged when no groups are supplied', () => {
+    const flat = renderMarkdown('invoice.pdf', result);
+    expect(flat).toContain('**123** semantic changes detected:');
+    expect(flat).not.toContain('<details>');
   });
 });
 

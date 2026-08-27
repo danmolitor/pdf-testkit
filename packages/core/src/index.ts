@@ -50,6 +50,11 @@ export { diffSnapshots } from './diff/diff.js';
 export { matchNodes } from './diff/match.js';
 export type { MatchResult, NodePair } from './diff/match.js';
 
+// Causal grouping — a *view* over the event list for human-facing output.
+// Never changes DiffResult, the JSON output, or the fail gate.
+export { groupEvents } from './diff/group.js';
+export type { EventGroup, GroupKind } from './diff/group.js';
+
 // Snapshot IO + helpers
 export { readSnapshotFile, writeSnapshotFile } from './snapshot/io.js';
 export { loadSnapshotFromFile } from './snapshot/load.js';

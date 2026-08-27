@@ -1,8 +1,9 @@
-import { rmSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { FormeLayoutInfo } from '@pdf-testkit/core';
+import type { FormeLayoutInfo, StructuralSnapshot } from '@pdf-testkit/core';
 import { assertMatchesPDFSnapshot, resolveSnapshotPath } from '@pdf-testkit/matcher-core';
 
 const SNAP_DIR = join(tmpdir(), 'pdf-testkit-matcher-core-selftest');
@@ -56,5 +57,44 @@ describe('assertMatchesPDFSnapshot', () => {
     const path = resolveSnapshotPath(ctx, {});
     expect(path).toContain('__pdf_snapshots__');
     expect(path).toContain('report.test-renders.json');
+  });
+});
+
+/**
+ * A matcher has no flag surface of its own, so the escape hatch is an env var
+ * (matching the `PDF_TESTKIT_UPDATE` precedent). The grouped message is what a
+ * developer reads in their terminal; the flat one has to remain reachable.
+ */
+describe('assertMatchesPDFSnapshot — grouped failure message', () => {
+  const fixture = (name: string): string =>
+    fileURLToPath(new URL(`../../fixtures/snapshots/${name}.snapshot.json`, import.meta.url));
+  const grown = JSON.parse(readFileSync(fixture('invoice-grown'), 'utf8')) as StructuralSnapshot;
+
+  beforeEach(() => {
+    rmSync(SNAP_DIR, { recursive: true, force: true });
+    mkdirSync(SNAP_DIR, { recursive: true });
+    copyFileSync(fixture('invoice-baseline'), resolveSnapshotPath(ctx, { snapshotDir: SNAP_DIR, snapshotName: 'invoice' }));
+    delete process.env.CI;
+  });
+  afterEach(() => delete process.env.PDF_TESTKIT_VERBOSE);
+
+  const assert = () =>
+    assertMatchesPDFSnapshot(grown, ctx, { snapshotDir: SNAP_DIR, snapshotName: 'invoice' });
+
+  it('collapses the 123 events and says how to see the rest', async () => {
+    const outcome = await assert();
+    expect(outcome.pass).toBe(false);
+    const msg = outcome.message();
+    expect(msg).toContain('PDF snapshot changed (123 semantic events)');
+    expect(msg).toContain('117 related events collapsed; set PDF_TESTKIT_VERBOSE=1');
+    expect(msg).toContain("following the table's growth");
+  });
+
+  it('PDF_TESTKIT_VERBOSE=1 restores the full flat list', async () => {
+    process.env.PDF_TESTKIT_VERBOSE = '1';
+    const msg = (await assert()).message();
+    expect(msg).not.toContain('collapsed');
+    // One line per event plus the header and the two-line footer block.
+    expect(msg.split('\n').filter((l) => l.startsWith('  ⚠ ') || l.startsWith('  ✗ '))).toHaveLength(123);
   });
 });
