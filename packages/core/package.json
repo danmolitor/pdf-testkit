@@ -1,6 +1,6 @@
 {
   "name": "@pdf-testkit/core",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Semantic structural model, extractors, and diff engine for pdf-testkit",
   "license": "MIT",
   "type": "module",

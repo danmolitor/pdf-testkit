@@ -1,6 +1,6 @@
 {
   "name": "@pdf-testkit/matcher-core",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Framework-agnostic toMatchPDFSnapshot logic shared by the Jest and Vitest adapters",
   "license": "MIT",
   "type": "module",
@@ -20,7 +20,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@pdf-testkit/core": "^0.1.1"
+    "@pdf-testkit/core": "^0.1.2"
   },
   "publishConfig": {
     "access": "public"
