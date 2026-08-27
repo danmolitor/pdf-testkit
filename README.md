@@ -149,7 +149,7 @@ jobs:
       - run: npm ci                # incl. @pdf-testkit/cli (+ pdfjs-dist if snapshotting a .pdf)
       # produce the current document however your app builds it, then snapshot it:
       - run: npx pdf-testkit snapshot dist/invoice.pdf --out current.json
-      - uses: danmolitor/pdf-testkit/packages/action@v0.1.2
+      - uses: danmolitor/pdf-testkit/packages/action@v0.1.3
         with:
           baseline: baselines/invoice.json   # committed to your repo
           current: current.json              # a raw .pdf works too (needs pdfjs-dist)
@@ -159,7 +159,7 @@ jobs:
 Seed the baseline once — `pdf-testkit snapshot dist/invoice.pdf --out baselines/invoice.json` —
 and commit it; the Action diffs each PR's `current.json` against it. Committing `.json` snapshots
 (both baseline and current) keeps the runner free of PDF parsing; pass raw `.pdf` paths only if
-`pdfjs-dist` is installed. Pin the Action to a released tag (`@v0.1.2`), not a branch.
+`pdfjs-dist` is installed. Pin the Action to a released tag (`@v0.1.3`), not a branch.
 
 ## How it works
 
