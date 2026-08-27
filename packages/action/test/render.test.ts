@@ -38,7 +38,24 @@ describe('action markdown rendering', () => {
     expect(md).toContain('**2** semantic changes');
     expect(md).toContain('`page-count-changed`');
     expect(md).toContain('`table-moved`');
-    expect(md).toContain('0.50'); // confidence column
+    expect(md).toContain('| Confidence |');
+    expect(md).toContain('0.50');
+  });
+
+  it('drops the Confidence column when nothing was inferred', () => {
+    // FormePDF is authoritative end to end, so the column would be blank on
+    // every row — four empty cells is worse than three honest ones.
+    const authoritative: DiffResult = {
+      ...changed,
+      events: changed.events.map((e) => ({ ...e, confidence: 1 })),
+    };
+    const md = renderMarkdown('invoice.pdf', authoritative);
+    expect(md).not.toContain('Confidence');
+    expect(md).toContain('| | Event | Detail |');
+    // Rows must match the narrower header, not trail an empty cell.
+    for (const line of md.split('\n').filter((l) => l.startsWith('| 🔴 ') || l.startsWith('| 🟡 '))) {
+      expect(line.split('|')).toHaveLength(5); // '', severity, type, detail, ''
+    }
   });
 });
 
@@ -70,12 +87,21 @@ describe('action markdown rendering — grouped', () => {
     for (const e of result.events) expect(md).toContain(e.message.replace(/\|/g, '\\|'));
   });
 
+  it('uses the same column set in the summary table and every details block', () => {
+    // This diff is pure FormePDF, so the column is dropped everywhere.
+    expect(md).not.toContain('Confidence');
+    expect(md.match(/\| \| Event \| Detail \|/g)).toHaveLength(multiGroupCount(groups) + 1);
+  });
+
   it('renders the flat list unchanged when no groups are supplied', () => {
     const flat = renderMarkdown('invoice.pdf', result);
     expect(flat).toContain('**123** semantic changes detected:');
     expect(flat).not.toContain('<details>');
   });
 });
+
+const multiGroupCount = (groups: { events: unknown[] }[]): number =>
+  groups.filter((g) => g.events.length > 1).length;
 
 describe('action fail-on gating', () => {
   it('gates on error by default', () => {

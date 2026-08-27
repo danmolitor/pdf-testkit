@@ -31,12 +31,17 @@ export function renderMarkdown(
     return [COMMENT_MARKER, `### 📄 pdf-testkit — \`${label}\``, '', '✅ No semantic changes detected.'].join('\n');
   }
   const n = result.events.length;
+  // Confidence only means something when structure was *inferred*. A FormePDF
+  // run is authoritative end to end, so the column would be blank on every row;
+  // decided once from the whole event list so the summary table and the
+  // <details> tables never disagree about their shape.
+  const cols = result.events.some((e) => e.confidence < 1);
   const rows = groups
     ? groups.map((g) => {
         const count = g.events.length > 1 ? ` _(${g.events.length} events)_` : '';
-        return `| ${EMOJI[g.severity]} | \`${g.root.type}\` | ${escapePipes(g.summary)}${count} | ${confidence(g.root)} |`;
+        return cell(g.severity, g.root.type, escapePipes(g.summary) + count, g.root, cols);
       })
-    : result.events.map(row);
+    : result.events.map((e) => row(e, cols));
   const collapsed = groups ? n - groups.length : 0;
   const headline =
     collapsed > 0
@@ -49,16 +54,15 @@ export function renderMarkdown(
     '',
     headline,
     '',
-    '| | Event | Detail | Confidence |',
-    '| :-: | --- | --- | :-: |',
+    ...header(cols),
     ...rows,
     '',
-    ...(collapsed > 0 ? [details(groups!), ''] : []),
+    ...(collapsed > 0 ? [details(groups!, cols), ''] : []),
     '_Run `pdf-testkit` locally with `-u` (or `PDF_TESTKIT_UPDATE=1`) to accept these changes._',
   ].join('\n');
 }
 
-function details(groups: EventGroup[]): string {
+function details(groups: EventGroup[], cols: boolean): string {
   const blocks = groups
     .filter((g) => g.events.length > 1)
     .map((g) =>
@@ -66,9 +70,8 @@ function details(groups: EventGroup[]): string {
         '<details>',
         `<summary>${escapeHtml(g.summary)} — ${g.events.length} events</summary>`,
         '',
-        '| | Event | Detail | Confidence |',
-        '| :-: | --- | --- | :-: |',
-        ...g.events.map(row),
+        ...header(cols),
+        ...g.events.map((e) => row(e, cols)),
         '',
         '</details>',
       ].join('\n'),
@@ -76,8 +79,19 @@ function details(groups: EventGroup[]): string {
   return blocks.join('\n\n');
 }
 
-function row(e: SemanticEvent): string {
-  return `| ${EMOJI[e.severity]} | \`${e.type}\` | ${escapePipes(e.message)} | ${confidence(e)} |`;
+function header(cols: boolean): string[] {
+  return cols
+    ? ['| | Event | Detail | Confidence |', '| :-: | --- | --- | :-: |']
+    : ['| | Event | Detail |', '| :-: | --- | --- |'];
+}
+
+function row(e: SemanticEvent, cols: boolean): string {
+  return cell(e.severity, e.type, escapePipes(e.message), e, cols);
+}
+
+function cell(severity: Severity, type: string, detail: string, e: SemanticEvent, cols: boolean): string {
+  const head = `| ${EMOJI[severity]} | \`${type}\` | ${detail} |`;
+  return cols ? `${head} ${confidence(e)} |` : head;
 }
 
 function confidence(e: SemanticEvent): string {
