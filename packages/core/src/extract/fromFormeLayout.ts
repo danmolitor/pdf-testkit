@@ -52,7 +52,7 @@ export interface FormeElementInfo {
 /**
  * Explicit disposition for every value of `@formepdf/core`'s `ElementNodeType`
  * union. Every union member has a deliberate role here — none rely on the
- * fallthrough. Audited against @formepdf/core 0.13.0; re-review whenever that
+ * fallthrough. Audited against @formepdf/core 0.14.0; re-review whenever that
  * dependency version bumps (the coverage test in formeNodeTypeCoverage.test.ts
  * enforces that this table + FORME_INTENTIONALLY_UNMAPPED cover the whole union).
  *
