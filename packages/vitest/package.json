@@ -1,6 +1,6 @@
 {
   "name": "@pdf-testkit/vitest",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Vitest matcher: expect(pdf).toMatchPDFSnapshot()",
   "license": "MIT",
   "type": "module",
@@ -20,8 +20,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@pdf-testkit/core": "^0.1.4",
-    "@pdf-testkit/matcher-core": "^0.1.4"
+    "@pdf-testkit/core": "^0.1.5",
+    "@pdf-testkit/matcher-core": "^0.1.5"
   },
   "peerDependencies": {
     "vitest": ">=1"
