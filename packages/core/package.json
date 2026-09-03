@@ -28,7 +28,7 @@
     }
   },
   "devDependencies": {
-    "@formepdf/core": "0.15.0",
+    "@formepdf/core": "0.17.0",
     "pdfjs-dist": "^4.10.38"
   },
   "publishConfig": {
