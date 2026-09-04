@@ -33,16 +33,54 @@ export function matchNodes(baseNodes: StructuralNode[], nextNodes: StructuralNod
   const nextLeft = new Set(nextNodes);
   const pairs: NodePair[] = [];
 
-  // Stage 1 — exact stable key (role + normText + headingLevel). Within a key,
-  // pair by (pageIndex, order) rank so identical repeated content stays aligned.
+  // Stage 1 — exact stable key (role + normText + headingLevel). Within a
+  // key, two passes:
+  //
+  //   1a. Same-slot first: a base pairs with the candidate at the same page
+  //       and (near-)identical box. When one sibling LEAVES the bucket — a
+  //       Text converted to a Heading changes its key, a deletion removes it
+  //       outright — the survivors keep their true partners instead of
+  //       cascading off-by-one into phantom cross-page "moves". (Surfaced by
+  //       the 2026-09 heading retrofit: unchanged siblings on later pages
+  //       reported as moved-to-different-page.)
+  //   1b. Rank order for the remainder, so identical repeated content that
+  //       genuinely shifted (reflow onto another page) still pairs and is
+  //       reported as movement rather than remove+add churn.
   const nextByKey = groupBy([...nextLeft], exactKey);
-  for (const base of [...baseLeft].sort(byReadingOrder)) {
-    const bucket = nextByKey.get(exactKey(base));
-    if (!bucket || bucket.length === 0) continue;
-    const next = bucket.shift() as StructuralNode;
-    pairs.push({ base, next });
-    baseLeft.delete(base);
-    nextLeft.delete(next);
+  const baseByKey = groupBy([...baseLeft], exactKey);
+  for (const [key, baseBucket] of baseByKey) {
+    const nextBucket = nextByKey.get(key);
+    if (!nextBucket || nextBucket.length === 0) continue;
+
+    // Pass 1a — same page, same slot.
+    for (const base of [...baseBucket]) {
+      let best: StructuralNode | null = null;
+      let bestD = POSITION_MATCH_TOL;
+      for (const cand of nextBucket) {
+        if (cand.pageIndex !== base.pageIndex) continue;
+        const d = centerDistance(base.bbox, cand.bbox);
+        if (d <= bestD) {
+          bestD = d;
+          best = cand;
+        }
+      }
+      if (best) {
+        pairs.push({ base, next: best });
+        baseLeft.delete(base);
+        nextLeft.delete(best);
+        baseBucket.splice(baseBucket.indexOf(base), 1);
+        nextBucket.splice(nextBucket.indexOf(best), 1);
+      }
+    }
+
+    // Pass 1b — remaining siblings by (pageIndex, order) rank.
+    for (const base of baseBucket) {
+      const next = nextBucket.shift();
+      if (!next) break;
+      pairs.push({ base, next });
+      baseLeft.delete(base);
+      nextLeft.delete(next);
+    }
   }
 
   // Stage 2 — fuzzy text for text/heading nodes (a changed number, a typo fix).
