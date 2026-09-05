@@ -6,8 +6,8 @@ import { node, snapshot } from './helpers';
 /**
  * Grouping exists to make a large diff readable. The reference case is the real
  * FormePDF invoice from the dogfood run: growing the line-item table from 5 to
- * 19 rows produces 135 individually-accurate events (123 before same-page moves were evented), and a reviewer scrolling
- * past 135 rows approves without reading — the exact failure this tool exists
+ * 19 rows produces 146 individually-accurate events (123 before same-page moves and resizes were evented), and a reviewer scrolling
+ * past 146 rows approves without reading — the exact failure this tool exists
  * to prevent.
  *
  * The union assertion appears in every case on purpose. Grouping is a *view*,
@@ -45,7 +45,7 @@ const DIRECTIONS = [
     name: 'growing the line-item table from 5 rows to 19',
     baseline: INVOICE_BASELINE,
     next: INVOICE_GROWN,
-    table: { delta: '+15 rows, +81 cells, 12 repositioned', shape: '(6×4 → 21×5)', verb: 'table grew' },
+    table: { delta: '+15 rows, +81 cells, 23 repositioned', shape: '(6×4 → 21×5)', verb: 'table grew' },
     // The table only spans a page break in the grown document.
     span: 'now spans pages 1–2',
     cascade: { dir: 'shifted +1 page', hops: '1→2, 2→3', cause: "following the table's growth" },
@@ -60,7 +60,7 @@ const DIRECTIONS = [
     name: 'shrinking it back from 19 rows to 5',
     baseline: INVOICE_GROWN,
     next: INVOICE_BASELINE,
-    table: { delta: '-15 rows, -81 cells, 12 repositioned', shape: '(21×5 → 6×4)', verb: 'table shrank' },
+    table: { delta: '-15 rows, -81 cells, 23 repositioned', shape: '(21×5 → 6×4)', verb: 'table shrank' },
     span: null,
     cascade: { dir: 'shifted -1 page', hops: '2→1, 3→2', cause: 'following the table shrinking' },
     furniture: '-4 repeated header/footer elements on the removed page',
@@ -77,8 +77,8 @@ for (const d of DIRECTIONS) {
     const result = diffSnapshots(d.baseline, d.next);
     const groups = groupEvents(d.baseline, d.next, result.events);
 
-    it('is the 135-event diff this feature was built for', () => {
-      expect(result.events).toHaveLength(135);
+    it('is the 146-event diff this feature was built for', () => {
+      expect(result.events).toHaveLength(146);
     });
 
     it('collapses to a summary a person can actually read', () => {
@@ -106,9 +106,9 @@ for (const d of DIRECTIONS) {
       expect(table.summary).toBe(
         `${d.table.verb} ${d.table.delta} ${d.table.shape}${d.span ? `, ${d.span}` : ''}`,
       );
-      // The bulk of the diff: 97 subtree adds/removes, 12 repositioned cells
+      // The bulk of the diff: 97 subtree adds/removes, 23 repositioned cells
       // (same-page moves from the new column), plus the table's own event.
-      expect(table.events).toHaveLength(110);
+      expect(table.events).toHaveLength(121);
     });
 
     it('attributes the downstream page shifts to the table, by delta not destination', () => {

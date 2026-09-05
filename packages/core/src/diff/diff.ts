@@ -96,26 +96,61 @@ export function diffSnapshots(
       // and table cells redistributing 37pt both reported "no semantic
       // changes". Layout-engine changes move things WITHIN pages far more
       // often than across them — this is the workload's most common event.
-      const dist = centerDistance(base.bbox, after.bbox);
       // Only when the pair's text agrees: a slot-matched pair whose text
       // differs is a content change at that slot (tolerated separately),
       // and calling it a "move" would be wrong twice.
       const sameText = base.normText === after.normText;
-      if (sameText && dist > threshold) {
-        events.push({
-          type: 'element-moved',
-          severity: severityOf('element-moved'),
-          confidence: conf,
-          nodeId: after.id,
-          baseNodeId: base.id,
-          role: after.role,
-          textPreview: textPreview(after.text),
-          pageIndex: after.pageIndex,
-          fromBBox: base.bbox,
-          toBBox: after.bbox,
-          distancePts: Math.round(dist),
-          message: `${describe(after)} moved ${Math.round(dist)}pt on page ${after.pageIndex + 1}`,
-        });
+      if (sameText) {
+        // Decompose into origin shift vs size change. centerDistance alone
+        // conflates them: a container that grew 112pt taller with a pinned
+        // origin read as "moved 56pt" (this event's first CI catch). A
+        // resize and a move are different findings; an element can honestly
+        // do both, and then both are reported.
+        const originDist = Math.hypot(base.bbox.x - after.bbox.x, base.bbox.y - after.bbox.y);
+        const widthDelta = after.bbox.width - base.bbox.width;
+        const heightDelta = after.bbox.height - base.bbox.height;
+        const sizeDelta = Math.max(Math.abs(widthDelta), Math.abs(heightDelta));
+        if (originDist > threshold) {
+          events.push({
+            type: 'element-moved',
+            severity: severityOf('element-moved'),
+            confidence: conf,
+            nodeId: after.id,
+            baseNodeId: base.id,
+            role: after.role,
+            textPreview: textPreview(after.text),
+            pageIndex: after.pageIndex,
+            fromBBox: base.bbox,
+            toBBox: after.bbox,
+            distancePts: Math.round(originDist),
+            message: `${describe(after)} moved ${Math.round(originDist)}pt on page ${after.pageIndex + 1}`,
+          });
+        }
+        if (sizeDelta > threshold) {
+          const parts: string[] = [];
+          if (Math.abs(heightDelta) > threshold) {
+            parts.push(`${Math.round(Math.abs(heightDelta))}pt ${heightDelta > 0 ? 'taller' : 'shorter'}`);
+          }
+          if (Math.abs(widthDelta) > threshold) {
+            parts.push(`${Math.round(Math.abs(widthDelta))}pt ${widthDelta > 0 ? 'wider' : 'narrower'}`);
+          }
+          const grewNet = widthDelta + heightDelta > 0;
+          events.push({
+            type: 'element-resized',
+            severity: severityOf('element-resized'),
+            confidence: conf,
+            nodeId: after.id,
+            baseNodeId: base.id,
+            role: after.role,
+            textPreview: textPreview(after.text),
+            pageIndex: after.pageIndex,
+            fromBBox: base.bbox,
+            toBBox: after.bbox,
+            widthDelta,
+            heightDelta,
+            message: `${describe(after)} ${grewNet ? 'grew' : 'shrank'} ${parts.join(' and ')} on page ${after.pageIndex + 1}`,
+          });
+        }
       }
     }
 

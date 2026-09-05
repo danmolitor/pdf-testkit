@@ -287,7 +287,12 @@ export function groupEvents(
     // element-moved joined with the same-page-movement work: a cell that
     // repositioned when its table gained a column is the resize, not a
     // separate finding.
-    if (e.type !== 'element-added' && e.type !== 'element-removed' && e.type !== 'element-moved')
+    if (
+      e.type !== 'element-added' &&
+      e.type !== 'element-removed' &&
+      e.type !== 'element-moved' &&
+      e.type !== 'element-resized'
+    )
       continue;
 
     const key = owningTable(e, tables);
@@ -813,7 +818,7 @@ function tableSummary(
   for (const m of members) {
     const e = events[m]!;
     if (!('nodeId' in e)) continue;
-    if (e.type === 'element-moved') {
+    if (e.type === 'element-moved' || e.type === 'element-resized') {
       // Repositioned, not added — counting it with sign +1 would inflate
       // the growth figure by every cell the new column pushed sideways.
       repositioned++;

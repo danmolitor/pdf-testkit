@@ -73,8 +73,8 @@ describe('action markdown rendering — grouped', () => {
   const groups = groupEvents(base, next, result.events);
   const md = renderMarkdown('invoice.pdf', result, groups);
 
-  it('replaces 135 rows with one row per cause', () => {
-    expect(md).toContain('**135** semantic changes detected, grouped into **6**');
+  it('replaces 146 rows with one row per cause', () => {
+    expect(md).toContain('**146** semantic changes detected, grouped into **6**');
     // The main table: header, separator, then exactly one row per group.
     const rows = md.split('\n').filter((l) => l.startsWith('| 🔴 ') || l.startsWith('| 🟡 '));
     expect(rows.length).toBeGreaterThan(groups.length);
@@ -98,7 +98,7 @@ describe('action markdown rendering — grouped', () => {
 
   it('renders the flat list unchanged when no groups are supplied', () => {
     const flat = renderMarkdown('invoice.pdf', result);
-    expect(flat).toContain('**135** semantic changes detected:');
+    expect(flat).toContain('**146** semantic changes detected:');
     expect(flat).not.toContain('<details>');
   });
 });

@@ -81,12 +81,12 @@ describe('assertMatchesPDFSnapshot — grouped failure message', () => {
   const assert = () =>
     assertMatchesPDFSnapshot(grown, ctx, { snapshotDir: SNAP_DIR, snapshotName: 'invoice' });
 
-  it('collapses the 135 events and says how to see the rest', async () => {
+  it('collapses the 146 events and says how to see the rest', async () => {
     const outcome = await assert();
     expect(outcome.pass).toBe(false);
     const msg = outcome.message();
-    expect(msg).toContain('PDF snapshot changed (135 semantic events)');
-    expect(msg).toContain('129 related events collapsed; set PDF_TESTKIT_VERBOSE=1');
+    expect(msg).toContain('PDF snapshot changed (146 semantic events)');
+    expect(msg).toContain('140 related events collapsed; set PDF_TESTKIT_VERBOSE=1');
     expect(msg).toContain("following the table's growth");
   });
 
@@ -95,6 +95,6 @@ describe('assertMatchesPDFSnapshot — grouped failure message', () => {
     const msg = (await assert()).message();
     expect(msg).not.toContain('collapsed');
     // One line per event plus the header and the two-line footer block.
-    expect(msg.split('\n').filter((l) => l.startsWith('  ⚠ ') || l.startsWith('  ✗ '))).toHaveLength(135);
+    expect(msg.split('\n').filter((l) => l.startsWith('  ⚠ ') || l.startsWith('  ✗ '))).toHaveLength(146);
   });
 });

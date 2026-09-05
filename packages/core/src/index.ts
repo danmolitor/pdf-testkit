@@ -21,6 +21,7 @@ export type {
   DiffStats,
   PairedGeometry,
   ElementMovedEvent,
+  ElementResizedEvent,
   UncharacterizedChangeEvent,
   ElementAddedEvent,
   ElementMovedToPageEvent,

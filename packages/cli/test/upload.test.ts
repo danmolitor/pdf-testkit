@@ -87,7 +87,7 @@ describe('upload — compared run', () => {
     expect(r.exitCode).toBe(0);
     expect(r.documents[0]).toMatchObject({ status: 'created', kind: 'compared', outcome: 'blocked', reviewState: 'awaiting_review' });
     const run = [...server.runs.values()].find((x) => x.kind === 'compared')!;
-    expect(run.events).toHaveLength(135);
+    expect(run.events).toHaveLength(146);
     expect(run.groups).toHaveLength(6);
     expect(run.gate).toBe('error');
     expect(run.image_keys).toEqual([]); // a .json input has no pages to render

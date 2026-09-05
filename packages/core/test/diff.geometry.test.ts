@@ -52,6 +52,18 @@ describe('diff engine — events carry the geometry a consumer needs', () => {
     expect(ev).toMatchObject({ nodeId: '0:text:0', baseNodeId: '0:text:0' });
   });
 
+  it('element-resized (same origin, new size) names its baseline node and both boxes', () => {
+    const a = snapshot([node({ id: '0:container:0', role: 'container', bbox: { x: 54, y: 54, width: 500, height: 300 } })]);
+    const b = snapshot([node({ id: '0:container:0', role: 'container', bbox: { x: 54, y: 54, width: 500, height: 412 } })]);
+    const ev = diffSnapshots(a, b).events.find((e) => e.type === 'element-resized');
+    expect(ev).toMatchObject({
+      nodeId: '0:container:0',
+      baseNodeId: '0:container:0',
+      fromBBox: { x: 54, y: 54, width: 500, height: 300 },
+      toBBox: { x: 54, y: 54, width: 500, height: 412 },
+    });
+  });
+
   it('text-overflowed-container carries its box, and the baseline pair when there is one', () => {
     const a = snapshot([node({ id: '0:text:0', text: 'line', bbox: { x: 40, y: 500, width: 400, height: 84 } })]);
     const b = snapshot([node({ id: '0:text:0', text: 'line', bbox: { x: 40, y: 500, width: 400, height: 118.2 }, overflow: { axis: 'y', overflowPts: 14.2, container: 'page-content' } })]);
