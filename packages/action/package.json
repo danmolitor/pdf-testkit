@@ -9,7 +9,7 @@
   "scripts": {
     "build": "tsc --build",
     "test": "vitest run",
-    "bundle": "ncc build src/main.ts -o dist --minify -e @napi-rs/canvas"
+    "bundle": "ncc build src/main.ts -o dist --minify -e @napi-rs/canvas && node scripts/check-bundle.mjs"
   },
   "dependencies": {
     "@pdf-testkit/core": "^0.1.6",
