@@ -1,6 +1,6 @@
 {
   "name": "@pdf-testkit/jest",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Jest matcher: expect(pdf).toMatchPDFSnapshot()",
   "license": "MIT",
   "type": "module",
@@ -19,8 +19,8 @@
     "build": "tsc --build"
   },
   "dependencies": {
-    "@pdf-testkit/core": "^0.1.5",
-    "@pdf-testkit/matcher-core": "^0.1.5"
+    "@pdf-testkit/core": "^0.1.6",
+    "@pdf-testkit/matcher-core": "^0.1.6"
   },
   "peerDependencies": {
     "@jest/globals": ">=29",
