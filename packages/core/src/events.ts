@@ -7,7 +7,9 @@ export type SemanticEventType =
   | 'heading-hierarchy-changed'
   | 'text-overflowed-container'
   | 'element-added'
-  | 'element-removed';
+  | 'element-removed'
+  | 'element-moved'
+  | 'uncharacterized-change';
 
 export type Severity = 'info' | 'warn' | 'error';
 
@@ -24,6 +26,25 @@ export interface PageCountChangedEvent extends BaseEvent {
   type: 'page-count-changed';
   from: number;
   to: number;
+}
+
+export interface ElementMovedEvent extends BaseEvent {
+  type: 'element-moved';
+  nodeId: string;
+  role: NodeRole;
+  textPreview: string;
+  pageIndex: number;
+  fromBBox: BBox;
+  toBBox: BBox;
+  distancePts: number;
+}
+
+export interface UncharacterizedChangeEvent extends BaseEvent {
+  type: 'uncharacterized-change';
+  /** Matched element pairs whose geometry differs (sub-threshold). */
+  changedGeometry: number;
+  /** Total matched element pairs. */
+  matchedCount: number;
 }
 
 export interface ElementMovedToPageEvent extends BaseEvent {
@@ -88,7 +109,9 @@ export type SemanticEvent =
   | HeadingHierarchyChangedEvent
   | TextOverflowedEvent
   | ElementAddedEvent
-  | ElementRemovedEvent;
+  | ElementRemovedEvent
+  | ElementMovedEvent
+  | UncharacterizedChangeEvent;
 
 export interface DiffResult {
   changed: boolean;
@@ -116,6 +139,15 @@ export const DEFAULT_SEVERITY: Record<SemanticEventType, Severity> = {
   'table-moved': 'warn',
   'element-added': 'warn',
   'element-removed': 'warn',
+  // Same-page movement (non-table). Tables keep their richer 'table-moved'.
+  'element-moved': 'warn',
+  // The fallback channel: the content hash changed but no nameable event
+  // fired. A diff that stays silent over changed content is the same
+  // silent-failure shape this tool exists to expose — so the silence
+  // itself becomes an event. info by default: it must be VISIBLE without
+  // reclassifying tolerated jitter as failure (the matcher gates on
+  // non-info); strict callers can raise it via severityOverrides.
+  'uncharacterized-change': 'info',
 };
 
 export const DEFAULT_POSITION_THRESHOLD_PTS = 24;

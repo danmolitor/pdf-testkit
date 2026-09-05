@@ -29,6 +29,7 @@ export type GroupKind =
   | 'single'
   | 'table-resized'
   | 'page-shift-cascade'
+  | 'on-page-shift-cascade'
   | 'new-page-furniture'
   | 'value-changed';
 
@@ -283,7 +284,11 @@ export function groupEvents(
   for (let i = 0; i < events.length; i++) {
     if (claim[i] !== -1) continue;
     const e = events[i]!;
-    if (e.type !== 'element-added' && e.type !== 'element-removed') continue;
+    // element-moved joined with the same-page-movement work: a cell that
+    // repositioned when its table gained a column is the resize, not a
+    // separate finding.
+    if (e.type !== 'element-added' && e.type !== 'element-removed' && e.type !== 'element-moved')
+      continue;
 
     const key = owningTable(e, tables);
     if (key == null) continue;
@@ -347,6 +352,39 @@ export function groupEvents(
         cascadeSummary(run.length, delta, run.map((m) => m.i), events, cause),
       );
       for (const m of run) attach(id, m.i);
+    }
+  }
+
+  // ── Rule 2b — on-page shift cascade ────────────────────────────────────────
+  // Same phenomenon as Rule 2 with a page delta of zero: content grows
+  // mid-page and everything after it slides down (or shrinks and slides up)
+  // WITHOUT crossing a page boundary. These are `element-moved` events (new
+  // with the same-page-movement work) and without this rule they land as a
+  // pile of "moved 30pt on page 1" singles — individually accurate,
+  // collectively unreadable, all consequences of one cause.
+  {
+    const idxs: number[] = [];
+    events.forEach((e, i) => {
+      if (claim[i] !== -1 || e.type !== 'element-moved') return;
+      idxs.push(i);
+    });
+    if (idxs.length >= MIN_CASCADE_MEMBERS) {
+      const ranked = idxs
+        .map((i) => ({ i, rank: nextRank.get((events[i] as { nodeId: string }).nodeId) ?? -1 }))
+        .filter((m) => m.rank >= 0)
+        .sort((a, b) => a.rank - b.rank);
+      const movedIds = new Set(ranked.map((m) => (events[m.i] as { nodeId: string }).nodeId));
+      for (const run of contiguousRuns(ranked, nextNodes, nextRank, eventIdxByNextId, repeated, movedIds)) {
+        if (run.length < MIN_CASCADE_MEMBERS) continue;
+        const cause = nearestPrecedingCause(groups, events, rankInNext, run[0]!.rank, pageCountIdx);
+        if (cause == null) continue;
+        const id = open(
+          'on-page-shift-cascade',
+          run[0]!.i,
+          onPageCascadeSummary(run.map((m) => m.i), events, cause),
+        );
+        for (const m of run) attach(id, m.i);
+      }
     }
   }
 
@@ -771,9 +809,16 @@ function tableSummary(
 
   let rows = 0;
   let cells = 0;
+  let repositioned = 0;
   for (const m of members) {
     const e = events[m]!;
     if (!('nodeId' in e)) continue;
+    if (e.type === 'element-moved') {
+      // Repositioned, not added — counting it with sign +1 would inflate
+      // the growth figure by every cell the new column pushed sideways.
+      repositioned++;
+      continue;
+    }
     const removed = e.type === 'element-removed';
     const n = (removed ? t.baseById : t.nextById).get(e.nodeId);
     if (!n) continue;
@@ -784,6 +829,7 @@ function tableSummary(
   const delta = [
     rows !== 0 ? `${rows > 0 ? '+' : ''}${rows} row${Math.abs(rows) === 1 ? '' : 's'}` : null,
     cells !== 0 ? `${cells > 0 ? '+' : ''}${cells} cell${Math.abs(cells) === 1 ? '' : 's'}` : null,
+    repositioned > 0 ? `${repositioned} repositioned` : null,
   ]
     .filter(Boolean)
     .join(', ');
@@ -914,6 +960,33 @@ function contiguousRuns(
   }
   runs.push(current);
   return runs;
+}
+
+function onPageCascadeSummary(
+  idxs: number[],
+  events: SemanticEvent[],
+  cause: { summary: string; label?: string },
+): string {
+  let down = 0;
+  let up = 0;
+  let minD = Infinity;
+  let maxD = 0;
+  const pages = new Set<number>();
+  for (const i of idxs) {
+    const e = events[i]!;
+    if (e.type !== 'element-moved') continue;
+    const dy = e.toBBox.y - e.fromBBox.y;
+    if (dy >= 0) down++;
+    else up++;
+    minD = Math.min(minD, e.distancePts);
+    maxD = Math.max(maxD, e.distancePts);
+    pages.add(e.pageIndex + 1);
+  }
+  const dir = down >= up ? 'down' : 'up';
+  const span = minD === maxD ? `${maxD}pt` : `${Math.round(minD)}–${Math.round(maxD)}pt`;
+  const pageList = [...pages].sort((a, b) => a - b);
+  const pageStr = pageList.length === 1 ? `page ${pageList[0]}` : `pages ${pageList[0]}–${pageList[pageList.length - 1]}`;
+  return `${idxs.length} elements shifted ${dir} ${span} on ${pageStr} following ${cause.label ?? cause.summary}`;
 }
 
 function cascadeSummary(
