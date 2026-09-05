@@ -1,4 +1,4 @@
-import type { DiffResult, EventGroup, SemanticEvent, Severity } from '@pdf-testkit/core';
+import { causeTally, formatTally, type DiffResult, type EventGroup, type SemanticEvent, type Severity } from '@pdf-testkit/core';
 
 const SYMBOL: Record<Severity, string> = { error: '✗', warn: '⚠', info: 'ℹ' };
 const RANK: Record<Severity, number> = { info: 0, warn: 1, error: 2 };
@@ -31,10 +31,9 @@ export function formatHuman(
   if (!groups) return [`✗ ${n} semantic change${plural} (${a} → ${b}):`, ...result.events.map(line)].join('\n');
 
   const collapsed = n - groups.length;
-  const header =
-    collapsed > 0
-      ? `✗ ${n} semantic change${plural} in ${groups.length} group${groups.length === 1 ? '' : 's'} (${a} → ${b}):`
-      : `✗ ${n} semantic change${plural} (${a} → ${b}):`;
+  // The headline counts causes; events are a size, stated second.
+  const t = causeTally(groups);
+  const header = `✗ ${formatTally(t)} · ${t.causes} cause${t.causes === 1 ? '' : 's'}, ${n} event${plural} (${a} → ${b}):`;
   const lines = groups.map((g) => {
     const count = g.events.length > 1 ? `  [${g.events.length} events]` : '';
     return `  ${SYMBOL[g.severity]} ${g.root.type}  ${g.summary}${conf(g.root)}${count}`;

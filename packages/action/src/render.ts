@@ -1,4 +1,4 @@
-import type { DiffResult, EventGroup, SemanticEvent, Severity } from '@pdf-testkit/core';
+import { causeTally, formatTally, type DiffResult, type EventGroup, type SemanticEvent, type Severity } from '@pdf-testkit/core';
 
 export type FailOn = 'error' | 'warn' | 'any';
 
@@ -7,6 +7,8 @@ const EMOJI: Record<Severity, string> = { error: '🔴', warn: '🟡', info: '�
 
 /** Marker so the Action can find and update its own comment instead of spamming. */
 export const COMMENT_MARKER = '<!-- pdf-testkit -->';
+/** Demand measurement for a hosted review layer: reactions on this issue are the count. */
+export const INTEREST_URL = 'https://github.com/danmolitor/pdf-testkit/issues/1';
 
 export function shouldFail(result: DiffResult, failOn: FailOn): boolean {
   if (failOn === 'any') return result.events.length > 0;
@@ -43,10 +45,11 @@ export function renderMarkdown(
       })
     : result.events.map((e) => row(e, cols));
   const collapsed = groups ? n - groups.length : 0;
-  const headline =
-    collapsed > 0
-      ? `**${n}** semantic change${n === 1 ? '' : 's'} detected, grouped into **${groups!.length}**:`
-      : `**${n}** semantic change${n === 1 ? '' : 's'} detected:`;
+  // Causes first, events second: a cascade is one row and one count, never a pile of warnings.
+  const t = groups ? causeTally(groups) : null;
+  const headline = t
+    ? `**${formatTally(t)}** · **${t.causes}** cause${t.causes === 1 ? '' : 's'}, ${n} event${n === 1 ? '' : 's'}:`
+    : `**${n}** semantic change${n === 1 ? '' : 's'} detected:`;
 
   return [
     COMMENT_MARKER,
@@ -59,6 +62,8 @@ export function renderMarkdown(
     '',
     ...(collapsed > 0 ? [details(groups!, cols), ''] : []),
     '_Run `pdf-testkit` locally with `-u` (or `PDF_TESTKIT_UPDATE=1`) to accept these changes._',
+    '',
+    `<sub>Want to review this with page images side by side, and approve it as a team? [Say so](${INTEREST_URL}).</sub>`,
   ].join('\n');
 }
 

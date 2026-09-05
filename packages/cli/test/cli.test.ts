@@ -72,7 +72,7 @@ describe('pdf-testkit CLI — event grouping', () => {
   it('summarises the 146-event invoice diff by default', async () => {
     const { code, stdout } = await run(['diff', baseline, grown]);
     expect(code).toBe(1);
-    expect(stdout).toContain('146 semantic changes in 6 groups');
+    expect(stdout).toContain('1 error, 5 warnings · 6 causes, 146 events');
     expect(stdout).toContain('140 related events collapsed; re-run with --verbose');
     // header + 6 group lines + blank + footer.
     expect(stdout.trim().split('\n')).toHaveLength(9);

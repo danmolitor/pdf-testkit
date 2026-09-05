@@ -63,6 +63,8 @@ export type { MatchResult, NodePair } from './diff/match.js';
 // Never changes DiffResult, the JSON output, or the fail gate.
 export { groupEvents } from './diff/group.js';
 export type { EventGroup, GroupKind } from './diff/group.js';
+export { causeTally, formatTally } from './diff/tally.js';
+export type { CauseTally } from './diff/tally.js';
 
 // Snapshot IO + helpers
 export { readSnapshotFile, writeSnapshotFile } from './snapshot/io.js';

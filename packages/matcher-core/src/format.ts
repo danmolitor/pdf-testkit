@@ -1,4 +1,4 @@
-import type { EventGroup, SemanticEvent, Severity } from '@pdf-testkit/core';
+import { causeTally, formatTally, type EventGroup, type SemanticEvent, type Severity } from '@pdf-testkit/core';
 
 const SYMBOL: Record<Severity, string> = { error: '✗', warn: '⚠', info: 'ℹ' };
 
@@ -15,7 +15,12 @@ export function formatFailure(
   snapshotPath: string,
   groups: EventGroup[] | null = null,
 ): string {
-  const header = `PDF snapshot changed (${events.length} semantic event${events.length === 1 ? '' : 's'}):`;
+  const header = groups
+    ? (() => {
+        const t = causeTally(groups);
+        return `PDF snapshot changed: ${formatTally(t)} · ${t.causes} cause${t.causes === 1 ? '' : 's'}, ${events.length} event${events.length === 1 ? '' : 's'}:`;
+      })()
+    : `PDF snapshot changed (${events.length} semantic event${events.length === 1 ? '' : 's'}):`;
   const collapsed = groups ? events.length - groups.length : 0;
   const lines = groups
     ? groups.map((g) => {

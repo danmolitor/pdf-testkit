@@ -1,7 +1,9 @@
-import type { DiffResult, EventGroup } from '@pdf-testkit/core';
+import { type DiffResult, type EventGroup } from '@pdf-testkit/core';
 export type FailOn = 'error' | 'warn' | 'any';
 /** Marker so the Action can find and update its own comment instead of spamming. */
 export declare const COMMENT_MARKER = "<!-- pdf-testkit -->";
+/** Demand measurement for a hosted review layer: reactions on this issue are the count. */
+export declare const INTEREST_URL = "https://github.com/danmolitor/pdf-testkit/issues/1";
 export declare function shouldFail(result: DiffResult, failOn: FailOn): boolean;
 /**
  * Render a diff as a Markdown PR comment body (semantic events only).
@@ -12,3 +14,4 @@ export declare function shouldFail(result: DiffResult, failOn: FailOn): boolean;
  * away. The grouped view is a view, never a filter: nothing is discarded.
  */
 export declare function renderMarkdown(label: string, result: DiffResult, groups?: EventGroup[] | null): string;
+//# sourceMappingURL=render.d.ts.map

@@ -74,7 +74,8 @@ describe('action markdown rendering — grouped', () => {
   const md = renderMarkdown('invoice.pdf', result, groups);
 
   it('replaces 146 rows with one row per cause', () => {
-    expect(md).toContain('**146** semantic changes detected, grouped into **6**');
+    expect(md).toContain('**1 error, 5 warnings** · **6** causes, 146 events');
+    expect(md).toContain('issues/1');
     // The main table: header, separator, then exactly one row per group.
     const rows = md.split('\n').filter((l) => l.startsWith('| 🔴 ') || l.startsWith('| 🟡 '));
     expect(rows.length).toBeGreaterThan(groups.length);

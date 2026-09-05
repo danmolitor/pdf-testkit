@@ -85,7 +85,7 @@ describe('assertMatchesPDFSnapshot — grouped failure message', () => {
     const outcome = await assert();
     expect(outcome.pass).toBe(false);
     const msg = outcome.message();
-    expect(msg).toContain('PDF snapshot changed (146 semantic events)');
+    expect(msg).toContain('PDF snapshot changed: 1 error, 5 warnings · 6 causes, 146 events');
     expect(msg).toContain('140 related events collapsed; set PDF_TESTKIT_VERBOSE=1');
     expect(msg).toContain("following the table's growth");
   });
