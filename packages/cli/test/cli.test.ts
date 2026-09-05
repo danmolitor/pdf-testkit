@@ -69,27 +69,27 @@ describe('pdf-testkit CLI — event grouping', () => {
   const baseline = snapshotFixture('invoice-baseline');
   const grown = snapshotFixture('invoice-grown');
 
-  it('summarises the 123-event invoice diff by default', async () => {
+  it('summarises the 135-event invoice diff by default', async () => {
     const { code, stdout } = await run(['diff', baseline, grown]);
     expect(code).toBe(1);
-    expect(stdout).toContain('123 semantic changes in 6 groups');
-    expect(stdout).toContain('117 related events collapsed; re-run with --verbose');
+    expect(stdout).toContain('135 semantic changes in 6 groups');
+    expect(stdout).toContain('129 related events collapsed; re-run with --verbose');
     // header + 6 group lines + blank + footer.
     expect(stdout.trim().split('\n')).toHaveLength(9);
   });
 
   it('--verbose prints every event and no grouping', async () => {
     const { stdout } = await run(['diff', baseline, grown, '--verbose']);
-    expect(stdout).toContain('123 semantic changes');
+    expect(stdout).toContain('135 semantic changes');
     expect(stdout).not.toContain('groups');
     expect(stdout).not.toContain('collapsed');
-    expect(stdout.trim().split('\n')).toHaveLength(124); // header + 123 events
+    expect(stdout.trim().split('\n')).toHaveLength(136); // header + 135 events
   });
 
   it('--json is untouched by grouping', async () => {
     const { stdout } = await run(['diff', baseline, grown, '--json']);
     const result = JSON.parse(stdout);
-    expect(result.events).toHaveLength(123);
+    expect(result.events).toHaveLength(135);
   });
 
   it('gates the exit code on the full event list, not the group count', async () => {

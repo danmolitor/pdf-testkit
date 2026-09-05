@@ -78,6 +78,33 @@ export function diffSnapshots(
         toPage: after.pageIndex,
         message: `${describe(after)} moved from page ${base.pageIndex + 1} to page ${after.pageIndex + 1}`,
       });
+    } else {
+      // Same-page movement for NON-table elements. This branch did not exist
+      // for the tool's first months, and the gap was found the expensive way
+      // (forme's dogfood replay, 2026-09-05): a running header moving 25pt
+      // and table cells redistributing 37pt both reported "no semantic
+      // changes". Layout-engine changes move things WITHIN pages far more
+      // often than across them — this is the workload's most common event.
+      const dist = centerDistance(base.bbox, after.bbox);
+      // Only when the pair's text agrees: a slot-matched pair whose text
+      // differs is a content change at that slot (tolerated separately),
+      // and calling it a "move" would be wrong twice.
+      const sameText = base.normText === after.normText;
+      if (sameText && dist > threshold) {
+        events.push({
+          type: 'element-moved',
+          severity: severityOf('element-moved'),
+          confidence: conf,
+          nodeId: after.id,
+          role: after.role,
+          textPreview: textPreview(after.text),
+          pageIndex: after.pageIndex,
+          fromBBox: base.bbox,
+          toBBox: after.bbox,
+          distancePts: Math.round(dist),
+          message: `${describe(after)} moved ${Math.round(dist)}pt on page ${after.pageIndex + 1}`,
+        });
+      }
     }
 
     if (base.role === 'heading' && after.role === 'heading' && base.headingLevel !== after.headingLevel) {
@@ -126,6 +153,36 @@ export function diffSnapshots(
       pageIndex: node.pageIndex,
       message: `${describe(node)} removed from page ${node.pageIndex + 1}`,
     });
+  }
+
+  // The fallback channel: the hashes differ (we are past the identical-hash
+  // short-circuit) yet nothing above could name a change. Silence here would
+  // be a lie — the same silent-failure shape this tool exists to expose — so
+  // the silence itself becomes an event, with enough of a count to aim a
+  // human at the right place.
+  if (events.length === 0) {
+    const eps = 0.5;
+    // Count only same-text pairs: a slot pair whose text differs is a
+    // tolerated content change, and array reordering pairs untouched
+    // elements across slots — neither is unexplained geometry.
+    const changedGeometry = pairs.filter(
+      ({ base, next: after }) =>
+        base.normText === after.normText &&
+        (Math.abs(base.bbox.x - after.bbox.x) > eps ||
+          Math.abs(base.bbox.y - after.bbox.y) > eps ||
+          Math.abs(base.bbox.width - after.bbox.width) > eps ||
+          Math.abs(base.bbox.height - after.bbox.height) > eps),
+    ).length;
+    if (changedGeometry > 0) {
+      events.push({
+        type: 'uncharacterized-change',
+        severity: severityOf('uncharacterized-change'),
+        confidence: 1,
+        changedGeometry,
+        matchedCount: pairs.length,
+        message: `snapshot changed but no nameable event fired: ${changedGeometry} of ${pairs.length} matched element${pairs.length === 1 ? '' : 's'} moved or resized below the ${threshold}pt threshold`,
+      });
+    }
   }
 
   const filtered = events.filter((e) => e.confidence >= minConfidence);
