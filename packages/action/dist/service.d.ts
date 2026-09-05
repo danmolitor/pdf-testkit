@@ -18,4 +18,3 @@ export interface ServiceInputs {
 export declare function buildUploadArgs(inputs: ServiceInputs): string[];
 /** PROTOCOL.md §9, worded for a job log. */
 export declare function describeExit(code: number): string | null;
-//# sourceMappingURL=service.d.ts.map

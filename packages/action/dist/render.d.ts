@@ -14,4 +14,3 @@ export declare function shouldFail(result: DiffResult, failOn: FailOn): boolean;
  * away. The grouped view is a view, never a filter: nothing is discarded.
  */
 export declare function renderMarkdown(label: string, result: DiffResult, groups?: EventGroup[] | null): string;
-//# sourceMappingURL=render.d.ts.map
