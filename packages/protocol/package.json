@@ -1,6 +1,6 @@
 {
   "name": "@pdf-testkit/protocol",
-  "version": "0.1.6",
+  "version": "0.2.0",
   "description": "Ingest protocol between the pdf-testkit CLI and the pdf-testkit cloud service: schemas, types, and a fixture server for tests",
   "license": "MIT",
   "type": "module",
