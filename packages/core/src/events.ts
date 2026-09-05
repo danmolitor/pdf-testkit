@@ -9,6 +9,7 @@ export type SemanticEventType =
   | 'element-added'
   | 'element-removed'
   | 'element-moved'
+  | 'element-resized'
   | 'uncharacterized-change';
 
 export type Severity = 'info' | 'warn' | 'error';
@@ -37,6 +38,18 @@ export interface ElementMovedEvent extends BaseEvent {
   fromBBox: BBox;
   toBBox: BBox;
   distancePts: number;
+}
+
+export interface ElementResizedEvent extends BaseEvent {
+  type: 'element-resized';
+  nodeId: string;
+  role: NodeRole;
+  textPreview: string;
+  pageIndex: number;
+  fromBBox: BBox;
+  toBBox: BBox;
+  widthDelta: number;
+  heightDelta: number;
 }
 
 export interface UncharacterizedChangeEvent extends BaseEvent {
@@ -111,6 +124,7 @@ export type SemanticEvent =
   | ElementAddedEvent
   | ElementRemovedEvent
   | ElementMovedEvent
+  | ElementResizedEvent
   | UncharacterizedChangeEvent;
 
 export interface DiffResult {
@@ -141,6 +155,12 @@ export const DEFAULT_SEVERITY: Record<SemanticEventType, Severity> = {
   'element-removed': 'warn',
   // Same-page movement (non-table). Tables keep their richer 'table-moved'.
   'element-moved': 'warn',
+  // A size change with a stable origin. Discriminated from 'element-moved'
+  // because they are different findings — "content grew" vs "layout
+  // shifted" — and centerDistance alone reads half a height delta as
+  // movement (a 112pt-taller container reported as "moved 56pt" on this
+  // event's first CI run).
+  'element-resized': 'warn',
   // The fallback channel: the content hash changed but no nameable event
   // fired. A diff that stays silent over changed content is the same
   // silent-failure shape this tool exists to expose — so the silence
