@@ -98,3 +98,86 @@ describe('pdf-testkit CLI — event grouping', () => {
     expect(code).toBe(1);
   });
 });
+
+describe('pdf-testkit render-pages', () => {
+  it('writes one WebP per page and prints a manifest', async () => {
+    const out = join(dir, 'pages');
+    const pdf = fileURLToPath(new URL('../../fixtures/pdfs/invoice.pdf', import.meta.url));
+    const { code, stdout } = await run(['render-pages', pdf, '--out', out, '--dpi', '72', '--json']);
+    expect(code).toBe(0);
+    const manifest = JSON.parse(stdout);
+    expect(manifest.dpi).toBe(72);
+    expect(manifest.format).toBe('image/webp');
+    expect(manifest.rendererId).toMatch(/^pdfjs-/);
+    expect(manifest.pages.length).toBeGreaterThan(0);
+    for (const p of manifest.pages) {
+      const bytes = readFileSync(join(out, p.file));
+      expect(bytes.length).toBe(p.byteSize);
+      expect(bytes.subarray(0, 4).toString()).toBe('RIFF');
+      expect(p.sha256).toMatch(/^[0-9a-f]{64}$/);
+    }
+  });
+
+  it('exits 2 on an unreadable input', async () => {
+    const { code } = await run(['render-pages', join(dir, 'nope.pdf'), '--out', join(dir, 'x')]);
+    expect(code).toBe(2);
+  });
+});
+
+describe('pdf-testkit check-determinism', () => {
+  const invoicePdf = fileURLToPath(new URL('../../fixtures/pdfs/invoice.pdf', import.meta.url));
+
+  it('exits 0 and says so when two renders extract identically', async () => {
+    const out = join(dir, 'det-stable.pdf');
+    const { code, stdout } = await run(['check-determinism', out, '--cmd', `cp "${invoicePdf}" "${out}"`]);
+    expect(code).toBe(0);
+    expect(stdout).toContain('deterministic');
+  });
+
+  // A "producer" that stamps today's date into the document, like a fixture
+  // that embeds `new Date()`. Back-to-back it passes; with a clock offset the
+  // second render lands on a different day and the field is exposed.
+  const datedProducer = (out: string): string =>
+    `node -e "const d=new Date().toISOString().slice(0,10);` +
+    `const doc={pages:[{width:595,height:842,contentX:40,contentY:40,contentWidth:520,contentHeight:762,elements:[` +
+    `{nodeType:'Heading',x:40,y:40,width:300,height:28,style:{fontSize:24,fontWeight:700},textContent:'Invoice'},` +
+    `{nodeType:'Text',x:40,y:80,width:300,height:14,style:{fontSize:11},textContent:'Issued '+d}]}]};` +
+    `require('fs').writeFileSync(process.argv[1],JSON.stringify(doc))" "${out}"`;
+
+  it('passes a date-stamped fixture back-to-back but exposes it with --clock-offset', async () => {
+    const out = join(dir, 'det-dated.json');
+    const same = await run(['check-determinism', out, '--cmd', datedProducer(out)]);
+    expect(same.code).toBe(0);
+
+    const shifted = await run(['check-determinism', out, '--cmd', datedProducer(out), '--clock-offset', '26h', '--json']);
+    expect(shifted.code).toBe(1);
+    const report = JSON.parse(shifted.stdout);
+    expect(report.deterministic).toBe(false);
+    expect(report.differences).toHaveLength(1);
+    expect(report.differences[0]).toMatchObject({ path: expect.stringContaining('text'), field: 'text' });
+    expect(report.differences[0].before).toMatch(/^Issued \d{4}-\d{2}-\d{2}$/);
+    expect(report.differences[0].after).toMatch(/^Issued \d{4}-\d{2}-\d{2}$/);
+    expect(report.differences[0].before).not.toBe(report.differences[0].after);
+  });
+
+  it('names the differing node and both values in the human output', async () => {
+    const out = join(dir, 'det-dated2.json');
+    const { code, stdout } = await run(['check-determinism', out, '--cmd', datedProducer(out), '--clock-offset', '26h']);
+    expect(code).toBe(1);
+    expect(stdout).toContain('not deterministic');
+    expect(stdout).toContain('Issued ');
+    expect(stdout).toContain('→');
+  });
+
+  it('exits 2 when the render command fails', async () => {
+    const out = join(dir, 'det-fail.pdf');
+    const { code } = await run(['check-determinism', out, '--cmd', 'exit 7']);
+    expect(code).toBe(2);
+  });
+
+  it('rejects a malformed --clock-offset', async () => {
+    const out = join(dir, 'det-bad.pdf');
+    const { code } = await run(['check-determinism', out, '--cmd', `cp "${invoicePdf}" "${out}"`, '--clock-offset', 'soon']);
+    expect(code).toBe(2);
+  });
+});

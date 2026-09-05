@@ -18,6 +18,10 @@ export type {
   BaseEvent,
   DiffOptions,
   DiffResult,
+  DiffStats,
+  PairedGeometry,
+  ElementMovedEvent,
+  UncharacterizedChangeEvent,
   ElementAddedEvent,
   ElementMovedToPageEvent,
   ElementRemovedEvent,
@@ -44,6 +48,10 @@ export type {
   FormeElementInfo,
 } from './extract/fromFormeLayout.js';
 export { fromPdf } from './extract/fromPdf.js';
+
+// Page images (customer CI only — the service never renders)
+export { renderPages } from './render/pages.js';
+export type { RenderPagesOptions, RenderedPage, RenderedPages } from './render/pages.js';
 
 // Diff engine
 export { diffSnapshots } from './diff/diff.js';

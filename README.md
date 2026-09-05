@@ -100,10 +100,21 @@ pdf-testkit diff a.pdf b.pdf                           # human-readable event li
 pdf-testkit diff base.json new.pdf --json             # machine-readable DiffResult
 pdf-testkit diff a.pdf b.pdf --verbose                 # every event, ungrouped
 pdf-testkit diff a.pdf b.pdf --fail-on warn --min-confidence 0.7
+
+pdf-testkit render-pages invoice.pdf --out pages/ --dpi 150   # WebP page images (needs @napi-rs/canvas)
+pdf-testkit check-determinism dist/invoice.pdf --cmd "npm run render:invoice" --clock-offset 26h
+pdf-testkit upload dist/*.pdf                          # hosted review — see "Hosted review" below
 ```
 
 Exit code is the contract: **0** = clean (or below the `--fail-on` gate), **1** = regression.
 Inputs may be `.pdf` or a `.json` snapshot/LayoutInfo, interchangeably.
+
+`check-determinism` runs *your* render command twice, extracts both outputs, and lists every
+node whose value differed — with both values, not a boolean. `--clock-offset` shifts the second
+render's clock so a fixture that embeds today's date fails today instead of tomorrow. The shift
+reaches Node processes (react-pdf, PDFKit, FormePDF, your script); a page inside a Puppeteer or
+Playwright browser keeps its own clock — read `PDF_TESTKIT_CLOCK_OFFSET_MS` yourself there. Run it
+once when you add a fixture and on a schedule, not on every commit.
 
 ### In CI
 
@@ -160,6 +171,62 @@ Seed the baseline once — `pdf-testkit snapshot dist/invoice.pdf --out baseline
 and commit it; the Action diffs each PR's `current.json` against it. Committing `.json` snapshots
 (both baseline and current) keeps the runner free of PDF parsing; pass raw `.pdf` paths only if
 `pdfjs-dist` is installed. Pin the Action to a released tag (`@v0.1.4`), not a branch.
+
+**3. Hosted review (pdf-testkit cloud).** Baselines stored outside the repo, a review UI with
+side-by-side page images, a GitHub check and PR comment, and a record of who approved what. The
+CLI still does every bit of extraction, rendering and diffing on your runner; the service only
+stores, displays and remembers — it never sees the PDF.
+
+> [!IMPORTANT]
+> **Mark `pdf-testkit / semantic-diff` as a required status check in branch protection, or pass
+> `--fail-on`.** By default `upload` exits 0 even when a document is blocked: the service's check
+> is the gate, and a failing step would report the same thing twice. Without a required check, a
+> blocked document is a green job with a red check you might not notice. The same setting is what
+> catches a missing check when the service is unreachable — `upload` warns and passes in that
+> case (use `--require-service` to fail instead).
+
+Quickstart:
+
+1. Install the GitHub App on the repository and create its CI token; store it as
+   `PDF_TESTKIT_TOKEN`.
+2. Point the CLI at the documents your tests already produce:
+   ```yaml
+   - run: npm run build:docs                 # whatever renders your PDFs
+   - run: npx pdf-testkit upload dist/invoice.pdf dist/report.pdf
+     env:
+       PDF_TESTKIT_SERVICE_URL: https://api.pdf-testkit.dev
+       PDF_TESTKIT_TOKEN: ${{ secrets.PDF_TESTKIT_TOKEN }}
+   ```
+   Page images need `npm i -D pdfjs-dist @napi-rs/canvas` (prebuilt binaries, no native toolchain).
+   On GitHub Actions the commit, branch, PR and run identity are read from the environment; on
+   `pull_request` events the PR's head SHA is used, never the merge commit. Elsewhere pass
+   `--repo --commit --branch --run-id` or the `PDF_TESTKIT_*` equivalents.
+3. **Check each fixture is deterministic before you rely on it:**
+   `pdf-testkit check-determinism dist/invoice.pdf --cmd "npm run build:docs" --clock-offset 26h`.
+   A fixture that embeds `new Date()` or a random invoice number reports events forever; freeze
+   the value in the fixture data. The service will not ignore a field for you.
+4. Mark the check required (see above), then open your first PR. The first upload of a document
+   establishes its baseline — nothing is compared, the check passes as "Baseline established".
+   Later runs compare against the default branch's current baseline; approving in the review UI
+   stages the promotion, and the baseline advances when the commit lands on `main`.
+
+Or use the Action in service mode — it runs your installed CLI and otherwise stays out of the way:
+
+```yaml
+- uses: danmolitor/pdf-testkit/packages/action@v0.2.0
+  with:
+    service-token: ${{ secrets.PDF_TESTKIT_TOKEN }}
+    service-url: https://api.pdf-testkit.dev
+    documents: |
+      dist/invoice.pdf
+      dist/report.pdf
+```
+
+`upload` exit codes: **0** reported (or service unavailable without `--require-service`) ·
+**1** `--fail-on` gate hit · **2** configuration error (revoked token, wrong repository, unreadable
+document — a 4xx is never treated as "unavailable") · **3** unavailable with `--require-service`.
+Flags: `--dpi 150`, `--no-images` (structure only), `--fail-on error|warn|any`, `--require-service`.
+The wire format is documented in `packages/protocol/PROTOCOL.md`.
 
 ## How it works
 
@@ -253,9 +320,10 @@ no container concept. Confidence is 1.0 on the FormePDF path and &lt;1 here — 
 ## Scope (v0.1)
 
 **In:** page/page-assignment, table-position, heading-hierarchy, and overflow diffing; Jest +
-Vitest matchers; CLI; comment-only GitHub Action.
-**Out (later):** pixel diffing; hosted baselines / PR review UI; PDF/A·UA conformance diffing;
-font-embedding diffing; non-PDF formats.
+Vitest matchers; CLI (snapshot, diff, render-pages, check-determinism, upload); GitHub Action in
+comment mode or service mode; the upload protocol for the hosted review layer.
+**Out (later):** pixel diffing; PDF/A·UA conformance diffing; font-embedding diffing; non-PDF
+formats.
 
 ## Packages
 
@@ -265,7 +333,8 @@ font-embedding diffing; non-PDF formats.
 | `@pdf-testkit/matcher-core` | Framework-agnostic `toMatchPDFSnapshot` logic |
 | `@pdf-testkit/vitest` · `@pdf-testkit/jest` | Thin test-runner adapters |
 | `@pdf-testkit/cli` | `pdf-testkit` command |
-| `@pdf-testkit/action` | Comment-only GitHub Action |
+| `@pdf-testkit/protocol` | CLI ↔ review-service contract: schemas, types, and a fixture server for tests |
+| `@pdf-testkit/action` | GitHub Action: comment mode (no service) or service mode |
 
 ## Development
 

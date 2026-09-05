@@ -11,7 +11,7 @@ type AnyPdfjs = any;
 
 let cached: AnyPdfjs | undefined;
 
-async function getPdfjs(): Promise<AnyPdfjs> {
+export async function getPdfjs(): Promise<AnyPdfjs> {
   if (cached) return cached;
   const candidates = ['pdfjs-dist/legacy/build/pdf.mjs', 'pdfjs-dist'];
   let lastErr: unknown;

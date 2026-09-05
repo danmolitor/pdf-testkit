@@ -3,12 +3,14 @@ import { describe, it, expect } from 'vitest';
 import { diffSnapshots, groupEvents, type DiffResult, type StructuralSnapshot } from '@pdf-testkit/core';
 import { COMMENT_MARKER, renderMarkdown, shouldFail } from '../src/render.js';
 
-const clean: DiffResult = { changed: false, events: [], baselineHash: 'sha256:a', newHash: 'sha256:a' };
+const stats = { baselineNodes: 0, newNodes: 0, pairs: 0, added: 0, removed: 0 };
+const clean: DiffResult = { changed: false, events: [], baselineHash: 'sha256:a', newHash: 'sha256:a', stats };
 
 const changed: DiffResult = {
   changed: true,
   baselineHash: 'sha256:a',
   newHash: 'sha256:b',
+  stats,
   events: [
     { type: 'page-count-changed', severity: 'error', confidence: 1, from: 2, to: 3, message: 'page count changed 2 → 3' },
     {
@@ -16,6 +18,7 @@ const changed: DiffResult = {
       severity: 'warn',
       confidence: 0.5,
       nodeId: '1:table:0',
+      baseNodeId: '0:table:0',
       fromPage: 0,
       toPage: 1,
       fromBBox: { x: 0, y: 0, width: 1, height: 1 },

@@ -6,6 +6,7 @@ import { defineWorkspace } from 'vitest/config';
 export default defineWorkspace([
   'packages/core',
   'packages/matcher-core',
+  'packages/protocol',
   'packages/cli',
   'packages/vitest',
   'packages/action',

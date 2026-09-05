@@ -18,7 +18,14 @@ export function diffSnapshots(
   // Identical structure -> no work. This is also what keeps re-serializing the
   // same document from ever producing a spurious diff.
   if (baseline.contentHash === next.contentHash) {
-    return { changed: false, events: [], baselineHash: baseline.contentHash, newHash: next.contentHash };
+    const n = baseline.nodes.length;
+    return {
+      changed: false,
+      events: [],
+      baselineHash: baseline.contentHash,
+      newHash: next.contentHash,
+      stats: { baselineNodes: n, newNodes: n, pairs: n, added: 0, removed: 0 },
+    };
   }
 
   const threshold = opts.positionThresholdPts ?? DEFAULT_POSITION_THRESHOLD_PTS;
@@ -57,6 +64,7 @@ export function diffSnapshots(
           severity: severityOf('table-moved'),
           confidence: conf,
           nodeId: after.id,
+          baseNodeId: base.id,
           fromPage: base.pageIndex,
           toPage: after.pageIndex,
           fromBBox: base.bbox,
@@ -72,10 +80,13 @@ export function diffSnapshots(
         severity: severityOf('element-moved-to-different-page'),
         confidence: conf,
         nodeId: after.id,
+        baseNodeId: base.id,
         role: after.role,
         textPreview: textPreview(after.text),
         fromPage: base.pageIndex,
         toPage: after.pageIndex,
+        fromBBox: base.bbox,
+        toBBox: after.bbox,
         message: `${describe(after)} moved from page ${base.pageIndex + 1} to page ${after.pageIndex + 1}`,
       });
     } else {
@@ -96,6 +107,7 @@ export function diffSnapshots(
           severity: severityOf('element-moved'),
           confidence: conf,
           nodeId: after.id,
+          baseNodeId: base.id,
           role: after.role,
           textPreview: textPreview(after.text),
           pageIndex: after.pageIndex,
@@ -113,6 +125,9 @@ export function diffSnapshots(
         severity: severityOf('heading-hierarchy-changed'),
         confidence: conf,
         nodeId: after.id,
+        baseNodeId: base.id,
+        fromBBox: base.bbox,
+        toBBox: after.bbox,
         textPreview: textPreview(after.text),
         fromLevel: base.headingLevel,
         toLevel: after.headingLevel,
@@ -122,7 +137,7 @@ export function diffSnapshots(
 
     // Overflow is a regression only when it is newly present in this run.
     if (after.overflow && !base.overflow) {
-      events.push(overflowEvent(after, severityOf('text-overflowed-container'), conf));
+      events.push(overflowEvent(after, severityOf('text-overflowed-container'), conf, base));
     }
   }
 
@@ -135,10 +150,11 @@ export function diffSnapshots(
       role: node.role,
       textPreview: textPreview(node.text),
       pageIndex: node.pageIndex,
+      bbox: node.bbox,
       message: `${describe(node)} added on page ${node.pageIndex + 1}`,
     });
     if (node.overflow) {
-      events.push(overflowEvent(node, severityOf('text-overflowed-container'), node.confidence));
+      events.push(overflowEvent(node, severityOf('text-overflowed-container'), node.confidence, null));
     }
   }
 
@@ -151,6 +167,7 @@ export function diffSnapshots(
       role: node.role,
       textPreview: textPreview(node.text),
       pageIndex: node.pageIndex,
+      bbox: node.bbox,
       message: `${describe(node)} removed from page ${node.pageIndex + 1}`,
     });
   }
@@ -191,6 +208,13 @@ export function diffSnapshots(
     events: filtered,
     baselineHash: baseline.contentHash,
     newHash: next.contentHash,
+    stats: {
+      baselineNodes: baseNodes.length,
+      newNodes: nextNodes.length,
+      pairs: pairs.length,
+      added: added.length,
+      removed: removed.length,
+    },
   };
 }
 
@@ -198,6 +222,7 @@ function overflowEvent(
   node: StructuralNode,
   severity: Severity,
   confidence: number,
+  base: StructuralNode | null,
 ): SemanticEvent {
   const o = node.overflow!;
   return {
@@ -208,6 +233,9 @@ function overflowEvent(
     textPreview: textPreview(node.text),
     overflow: o,
     pageIndex: node.pageIndex,
+    bbox: node.bbox,
+    baseNodeId: base?.id ?? null,
+    fromBBox: base?.bbox ?? null,
     message: `${describe(node)} overflowed its ${o.container} box by ${o.overflowPts}pt (${o.axis})`,
   };
 }

@@ -28,14 +28,25 @@ export interface PageCountChangedEvent extends BaseEvent {
   to: number;
 }
 
-export interface ElementMovedEvent extends BaseEvent {
+/**
+ * Geometry every PAIRED event carries, so a consumer holding only the event
+ * list (the cloud review screen drawing highlight overlays on page images) can
+ * locate the change on both the baseline page and the new page without
+ * re-running the matcher. `nodeId` is the new-snapshot node; `baseNodeId` is
+ * its counterpart in the baseline snapshot.
+ */
+export interface PairedGeometry {
+  baseNodeId: string;
+  fromBBox: BBox;
+  toBBox: BBox;
+}
+
+export interface ElementMovedEvent extends BaseEvent, PairedGeometry {
   type: 'element-moved';
   nodeId: string;
   role: NodeRole;
   textPreview: string;
   pageIndex: number;
-  fromBBox: BBox;
-  toBBox: BBox;
   distancePts: number;
 }
 
@@ -47,7 +58,7 @@ export interface UncharacterizedChangeEvent extends BaseEvent {
   matchedCount: number;
 }
 
-export interface ElementMovedToPageEvent extends BaseEvent {
+export interface ElementMovedToPageEvent extends BaseEvent, PairedGeometry {
   type: 'element-moved-to-different-page';
   nodeId: string;
   role: NodeRole;
@@ -56,16 +67,14 @@ export interface ElementMovedToPageEvent extends BaseEvent {
   toPage: number;
 }
 
-export interface TableMovedEvent extends BaseEvent {
+export interface TableMovedEvent extends BaseEvent, PairedGeometry {
   type: 'table-moved';
   nodeId: string;
   fromPage: number;
   toPage: number;
-  fromBBox: BBox;
-  toBBox: BBox;
 }
 
-export interface HeadingHierarchyChangedEvent extends BaseEvent {
+export interface HeadingHierarchyChangedEvent extends BaseEvent, PairedGeometry {
   type: 'heading-hierarchy-changed';
   nodeId: string;
   textPreview: string;
@@ -79,6 +88,11 @@ export interface TextOverflowedEvent extends BaseEvent {
   textPreview: string;
   overflow: import('./types.js').OverflowInfo;
   pageIndex: number;
+  /** Box of the overflowing node in the new snapshot. */
+  bbox: BBox;
+  /** The baseline pair, when the node existed before; null for a newly added node. */
+  baseNodeId: string | null;
+  fromBBox: BBox | null;
 }
 
 export interface ElementAddedEvent extends BaseEvent {
@@ -87,6 +101,7 @@ export interface ElementAddedEvent extends BaseEvent {
   role: NodeRole;
   textPreview: string;
   pageIndex: number;
+  bbox: BBox;
 }
 
 export interface ElementRemovedEvent extends BaseEvent {
@@ -100,6 +115,7 @@ export interface ElementRemovedEvent extends BaseEvent {
   role: NodeRole;
   textPreview: string;
   pageIndex: number;
+  bbox: BBox;
 }
 
 export type SemanticEvent =
@@ -113,11 +129,21 @@ export type SemanticEvent =
   | ElementMovedEvent
   | UncharacterizedChangeEvent;
 
+/** How much work a comparison did — reported, not interpreted. */
+export interface DiffStats {
+  baselineNodes: number;
+  newNodes: number;
+  pairs: number;
+  added: number;
+  removed: number;
+}
+
 export interface DiffResult {
   changed: boolean;
   events: SemanticEvent[];
   baselineHash: string;
   newHash: string;
+  stats: DiffStats;
 }
 
 export interface DiffOptions {

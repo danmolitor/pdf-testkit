@@ -10,7 +10,8 @@
   },
   "files": [
     "dist",
-    "bin"
+    "bin",
+    "preload"
   ],
   "scripts": {
     "build": "tsc --build",
@@ -19,6 +20,7 @@
   "dependencies": {
     "@pdf-testkit/core": "^0.1.6",
     "@pdf-testkit/matcher-core": "^0.1.6",
+    "@pdf-testkit/protocol": "^0.1.6",
     "commander": "^12.1.0"
   },
   "publishConfig": {

@@ -3,6 +3,7 @@
   "references": [
     { "path": "./packages/core" },
     { "path": "./packages/matcher-core" },
+    { "path": "./packages/protocol" },
     { "path": "./packages/jest" },
     { "path": "./packages/vitest" },
     { "path": "./packages/cli" },

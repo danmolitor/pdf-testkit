@@ -6,15 +6,37 @@ branding:
   color: 'blue'
 inputs:
   baseline:
-    description: 'Path to the committed baseline (.json snapshot or .pdf)'
-    required: true
-  current:
-    description: 'Path to the newly generated document (.json snapshot or .pdf)'
-    required: true
-  fail-on:
-    description: 'Severity gate that fails the check: error | warn | any'
+    description: 'Comment mode: path to the committed baseline (.json snapshot or .pdf)'
     required: false
-    default: 'error'
+  current:
+    description: 'Comment mode: path to the newly generated document (.json snapshot or .pdf)'
+    required: false
+  fail-on:
+    description: 'Severity that fails the job: error | warn | any. Comment mode defaults to error; in service mode leave unset so the service check is the gate'
+    required: false
+    default: ''
+  # --- service mode (pdf-testkit cloud): set service-token and the Action runs
+  # `pdf-testkit upload` from your installed @pdf-testkit/cli instead of
+  # diffing and commenting itself. The service stores the baseline and posts
+  # the check and the PR comment.
+  service-token:
+    description: 'Per-repository CI token for the pdf-testkit review service (store it as a secret)'
+    required: false
+  service-url:
+    description: 'Base URL of the review service'
+    required: false
+  documents:
+    description: 'Service mode: paths to the .pdf files this job produced, one per line'
+    required: false
+  dpi:
+    description: 'Service mode: page image resolution, 72..300'
+    required: false
+  images:
+    description: 'Service mode: set to false to upload structure only'
+    required: false
+  require-service:
+    description: 'Service mode: fail the job (instead of passing) when the service is unreachable'
+    required: false
   comment:
     description: 'Post/update a PR comment with the semantic diff'
     required: false

@@ -20,15 +20,20 @@
     "test": "vitest run"
   },
   "peerDependencies": {
+    "@napi-rs/canvas": "^0.1.65",
     "pdfjs-dist": "^4.10 || ^5"
   },
   "peerDependenciesMeta": {
+    "@napi-rs/canvas": {
+      "optional": true
+    },
     "pdfjs-dist": {
       "optional": true
     }
   },
   "devDependencies": {
     "@formepdf/core": "0.19.0",
+    "@napi-rs/canvas": "^0.1.100",
     "pdfjs-dist": "^4.10.38"
   },
   "publishConfig": {

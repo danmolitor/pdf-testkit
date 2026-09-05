@@ -1,7 +1,9 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
 import { diffSnapshots, groupEvents, loadSnapshotFromFile } from '@pdf-testkit/core';
+import { spawn } from 'node:child_process';
 import { COMMENT_MARKER, renderMarkdown, shouldFail } from './render.js';
+import { buildUploadArgs, describeExit } from './service.js';
 /**
  * Comment-only GitHub Action: diff a baseline against the current run and post
  * (or update) a single PR comment with the semantic events. No hosted storage —
@@ -9,6 +11,12 @@ import { COMMENT_MARKER, renderMarkdown, shouldFail } from './render.js';
  */
 export async function run() {
     try {
+        // Service mode: the hosted review layer stores the baseline, posts the
+        // check and the comment. This Action only hands the documents to the CLI.
+        if (core.getInput('service-token')) {
+            await runServiceMode();
+            return;
+        }
         const baseline = core.getInput('baseline', { required: true });
         const current = core.getInput('current', { required: true });
         const failOn = normalizeFailOn(core.getInput('fail-on'));
@@ -34,6 +42,28 @@ export async function run() {
         core.setFailed(`pdf-testkit action failed: ${err?.message ?? err}`);
     }
 }
+async function runServiceMode() {
+    const args = buildUploadArgs({
+        documents: core.getInput('documents'),
+        serviceUrl: core.getInput('service-url'),
+        serviceToken: core.getInput('service-token'),
+        dpi: core.getInput('dpi'),
+        images: core.getInput('images'),
+        failOn: core.getInput('fail-on'),
+        requireService: core.getInput('require-service'),
+    });
+    core.info(`pdf-testkit ${args.filter((a) => a !== core.getInput('service-token')).join(' ')}`);
+    const code = await new Promise((resolve, reject) => {
+        // `npx --no-install` uses the CLI the repository installed; the runner's
+        // GITHUB_* environment supplies commit, branch, PR and run identity.
+        const child = spawn('npx', ['--no-install', 'pdf-testkit', ...args], { stdio: 'inherit', env: process.env });
+        child.on('error', reject);
+        child.on('close', (c) => resolve(c ?? 1));
+    });
+    const problem = describeExit(code);
+    if (problem)
+        core.setFailed(problem);
+}
 async function upsertComment(body) {
     const token = core.getInput('token') || process.env.GITHUB_TOKEN || '';
     const pr = github.context.payload.pull_request;
@@ -54,6 +84,7 @@ async function upsertComment(body) {
     }
 }
 function normalizeFailOn(value) {
+    // Comment mode keeps its historical default of `error` when the input is unset.
     return value === 'warn' || value === 'any' ? value : 'error';
 }
 void run();
