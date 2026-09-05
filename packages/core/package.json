@@ -32,7 +32,7 @@
     }
   },
   "devDependencies": {
-    "@formepdf/core": "0.19.0",
+    "@formepdf/core": "0.20.0",
     "@napi-rs/canvas": "^0.1.100",
     "pdfjs-dist": "^4.10.38"
   },
