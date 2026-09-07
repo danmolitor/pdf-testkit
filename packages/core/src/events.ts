@@ -4,6 +4,7 @@ export type SemanticEventType =
   | 'page-count-changed'
   | 'element-moved-to-different-page'
   | 'table-moved'
+  | 'table-resized'
   | 'heading-hierarchy-changed'
   | 'text-overflowed-container'
   | 'element-added'
@@ -83,6 +84,27 @@ export interface TableMovedEvent extends BaseEvent, PairedGeometry {
   nodeId: string;
   fromPage: number;
   toPage: number;
+  /** Origin shift in points when the move is within a page; absent for a page change. */
+  distancePts?: number;
+}
+
+/**
+ * A table whose origin held while its shape or box changed. Distinct from
+ * 'table-moved' for the same reason 'element-resized' is distinct from
+ * 'element-moved': a table that loses rows keeps its top edge while its
+ * centre rises, and centre distance read that as "moved" on the first real
+ * PDF through the hosted service.
+ */
+export interface TableResizedEvent extends BaseEvent, PairedGeometry {
+  type: 'table-resized';
+  nodeId: string;
+  pageIndex: number;
+  fromRows: number | null;
+  fromCols: number | null;
+  toRows: number | null;
+  toCols: number | null;
+  widthDelta: number;
+  heightDelta: number;
 }
 
 export interface HeadingHierarchyChangedEvent extends BaseEvent, PairedGeometry {
@@ -133,6 +155,7 @@ export type SemanticEvent =
   | PageCountChangedEvent
   | ElementMovedToPageEvent
   | TableMovedEvent
+  | TableResizedEvent
   | HeadingHierarchyChangedEvent
   | TextOverflowedEvent
   | ElementAddedEvent
@@ -175,6 +198,7 @@ export const DEFAULT_SEVERITY: Record<SemanticEventType, Severity> = {
   'text-overflowed-container': 'error',
   'element-moved-to-different-page': 'warn',
   'table-moved': 'warn',
+  'table-resized': 'warn',
   'element-added': 'warn',
   'element-removed': 'warn',
   // Same-page movement (non-table). Tables keep their richer 'table-moved'.

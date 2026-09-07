@@ -160,7 +160,7 @@ jobs:
       - run: npm ci                # incl. @pdf-testkit/cli (+ pdfjs-dist if snapshotting a .pdf)
       # produce the current document however your app builds it, then snapshot it:
       - run: npx pdf-testkit snapshot dist/invoice.pdf --out current.json
-      - uses: danmolitor/pdf-testkit/packages/action@v0.2.1
+      - uses: danmolitor/pdf-testkit/packages/action@v0.2.2
         with:
           baseline: baselines/invoice.json   # committed to your repo
           current: current.json              # a raw .pdf works too (needs pdfjs-dist)
@@ -213,7 +213,7 @@ Quickstart:
 Or use the Action in service mode — it runs your installed CLI and otherwise stays out of the way:
 
 ```yaml
-- uses: danmolitor/pdf-testkit/packages/action@v0.2.1
+- uses: danmolitor/pdf-testkit/packages/action@v0.2.2
   with:
     service-token: ${{ secrets.PDF_TESTKIT_TOKEN }}
     service-url: https://api.pdf-testkit.dev
@@ -235,7 +235,7 @@ position, font, heading level, table shape, overflow; a content hash). The diff 
 nodes across two snapshots — exact key → fuzzy text → in-place position → structural — and emits
 typed events instead of a similarity score:
 
-`page-count-changed` · `element-moved-to-different-page` · `table-moved` ·
+`page-count-changed` · `element-moved-to-different-page` · `table-moved` · `table-resized` ·
 `heading-hierarchy-changed` · `text-overflowed-container` · `element-added` · `element-removed`
 
 Because matching resolves *moved* vs *removed+added*, reordering untouched content, whitespace/
@@ -256,7 +256,7 @@ Human-facing output therefore groups events by cause:
 ```
 ✗ 123 semantic changes in 6 groups (baseline.json → current.json):
   ✗ page-count-changed  page count changed 2 → 3 (+4 repeated header/footer elements on the new page)  [5 events]
-  ⚠ table-moved  table grew +15 rows, +81 cells (6×4 → 21×5), now spans pages 1–2  [98 events]
+  ⚠ table-resized  table grew +15 rows, +81 cells (6×4 → 21×5), now spans pages 1–2  [98 events]
   ⚠ element-moved-to-different-page  14 elements shifted +1 page (1→2, 2→3) following the table's growth  [14 events]
   ⚠ element-added  text "$14350.00" → "$41158.00"  [2 events]
   ⚠ element-added  text "$1148.00" → "$3292.64"  [2 events]

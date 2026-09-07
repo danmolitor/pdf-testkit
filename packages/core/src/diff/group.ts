@@ -98,6 +98,7 @@ const STRUCTURAL = new Set<SemanticEventType>([
   'element-removed',
   'element-moved-to-different-page',
   'table-moved',
+  'table-resized',
 ]);
 
 /**

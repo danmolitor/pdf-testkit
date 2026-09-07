@@ -1,7 +1,6 @@
 import type { DiffOptions, DiffResult, SemanticEvent, SemanticEventType, Severity } from '../events.js';
 import { DEFAULT_POSITION_THRESHOLD_PTS, DEFAULT_SEVERITY } from '../events.js';
 import type { NodeRole, StructuralNode, StructuralSnapshot } from '../types.js';
-import { centerDistance } from '../geometry.js';
 import { textPreview } from '../text/normalize.js';
 import { matchNodes } from './match.js';
 
@@ -56,9 +55,12 @@ export function diffSnapshots(
     const conf = Math.min(base.confidence, after.confidence);
 
     if (after.role === 'table') {
+      // Origin shift and size change are different findings, as for every
+      // other element below. Centre distance conflated them: a table that
+      // lost 15 rows kept its top edge and was reported as "moved".
       const movedPage = base.pageIndex !== after.pageIndex;
-      const movedOnPage = centerDistance(base.bbox, after.bbox) > threshold;
-      if (movedPage || movedOnPage) {
+      const originDist = Math.hypot(base.bbox.x - after.bbox.x, base.bbox.y - after.bbox.y);
+      if (movedPage || originDist > threshold) {
         events.push({
           type: 'table-moved',
           severity: severityOf('table-moved'),
@@ -69,9 +71,40 @@ export function diffSnapshots(
           toPage: after.pageIndex,
           fromBBox: base.bbox,
           toBBox: after.bbox,
+          ...(movedPage ? {} : { distancePts: Math.round(originDist) }),
           message: movedPage
             ? `table moved from page ${base.pageIndex + 1} to page ${after.pageIndex + 1}`
-            : `table moved ${Math.round(centerDistance(base.bbox, after.bbox))}pt on page ${after.pageIndex + 1}`,
+            : `table moved ${Math.round(originDist)}pt on page ${after.pageIndex + 1}`,
+        });
+      }
+      const fromRows = base.table?.rows ?? null;
+      const fromCols = base.table?.cols ?? null;
+      const toRows = after.table?.rows ?? null;
+      const toCols = after.table?.cols ?? null;
+      const shapeChanged = fromRows !== toRows || fromCols !== toCols;
+      const widthDelta = after.bbox.width - base.bbox.width;
+      const heightDelta = after.bbox.height - base.bbox.height;
+      const sizeDelta = Math.max(Math.abs(widthDelta), Math.abs(heightDelta));
+      if (!movedPage && (shapeChanged || sizeDelta > threshold)) {
+        const shape = (r: number | null, c: number | null) => (r == null || c == null ? '?' : `${r}×${c}`);
+        const grew = shapeChanged ? (toRows ?? 0) * (toCols ?? 0) > (fromRows ?? 0) * (fromCols ?? 0) : widthDelta + heightDelta > 0;
+        const what = shapeChanged ? `${shape(fromRows, fromCols)} → ${shape(toRows, toCols)}` : `${Math.round(sizeDelta)}pt`;
+        events.push({
+          type: 'table-resized',
+          severity: severityOf('table-resized'),
+          confidence: conf,
+          nodeId: after.id,
+          baseNodeId: base.id,
+          pageIndex: after.pageIndex,
+          fromBBox: base.bbox,
+          toBBox: after.bbox,
+          fromRows,
+          fromCols,
+          toRows,
+          toCols,
+          widthDelta,
+          heightDelta,
+          message: `table ${grew ? 'grew' : 'shrank'} ${what} on page ${after.pageIndex + 1}`,
         });
       }
     } else if (base.pageIndex !== after.pageIndex) {
