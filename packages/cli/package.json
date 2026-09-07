@@ -1,6 +1,6 @@
 {
   "name": "@pdf-testkit/cli",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Framework-agnostic CLI for pdf-testkit: snapshot and diff generated PDFs",
   "license": "MIT",
   "type": "module",
@@ -21,7 +21,8 @@
     "@pdf-testkit/core": "^0.2.2",
     "@pdf-testkit/matcher-core": "^0.2.2",
     "@pdf-testkit/protocol": "^0.2.2",
-    "commander": "^12.1.0"
+    "commander": "^12.1.0",
+    "pdfjs-dist": "^4.10.38"
   },
   "publishConfig": {
     "access": "public"
