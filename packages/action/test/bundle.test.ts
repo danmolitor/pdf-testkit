@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error plain module shared with the bundle script
-import { checkBundle, LIMITS } from '../scripts/check-bundle.mjs';
+import { checkBundle, LIMITS, smokeRun } from '../scripts/check-bundle.mjs';
 
 const dist = new URL('../dist', import.meta.url).pathname;
 
@@ -14,8 +14,20 @@ const dist = new URL('../dist', import.meta.url).pathname;
  * for people who had already installed the Action.
  */
 describe('the committed Action bundle', () => {
-  it('has no native binaries, no split chunks, and a plausible size', () => {
+  it('has no native binaries, no split chunks, no static imports of packages, and a plausible size', () => {
     expect(checkBundle(dist)).toEqual([]);
+  });
+
+  it('loads from a directory with no node_modules above it, the way a runner does', () => {
+    expect(smokeRun(dist)).toEqual([]);
+  });
+
+  it('the check catches the externalised-import bundle that broke v0.2.0', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'bundle-'));
+    writeFileSync(join(dir, 'index.js'), 'import{createRequire as r}from"module";import*as c from"@napi-rs/canvas";' + 'x'.repeat(LIMITS.minBytes));
+    const problems = checkBundle(dir);
+    expect(problems.some((p: string) => p.includes('statically imports "@napi-rs/canvas"'))).toBe(true);
+    expect(problems.some((p: string) => p.includes('"module"'))).toBe(false);
   });
 
   it('the check catches the darwin-binary bundle it was written for', () => {

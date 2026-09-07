@@ -41,7 +41,11 @@ let canvasModule: AnyCanvasModule | undefined;
 async function getCanvas(): Promise<AnyCanvasModule> {
   if (canvasModule) return canvasModule;
   try {
-    canvasModule = await import(/* @vite-ignore */ '@napi-rs/canvas');
+    // webpackIgnore: a bundler (the Action's ncc build) must leave this as a
+    // runtime import. Following it packs this machine's native binary; marking
+    // it external hoists a static import that fails at load on any runner
+    // without the package, whether or not rendering is ever called.
+    canvasModule = await import(/* webpackIgnore: true */ /* @vite-ignore */ '@napi-rs/canvas');
     return canvasModule;
   } catch (err) {
     throw new Error(
