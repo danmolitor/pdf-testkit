@@ -178,7 +178,7 @@ CLI still does every bit of extraction, rendering and diffing on your runner; th
 stores, displays and remembers — it never sees the PDF.
 
 > [!IMPORTANT]
-> **Mark `pdf-testkit / semantic-diff` as a required status check in branch protection, or pass
+> **Mark `forme-review / semantic-diff` as a required status check in branch protection, or pass
 > `--fail-on`.** By default `upload` exits 0 even when a document is blocked: the service's check
 > is the gate, and a failing step would report the same thing twice. Without a required check, a
 > blocked document is a green job with a red check you might not notice. The same setting is what
