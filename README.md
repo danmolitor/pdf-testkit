@@ -160,7 +160,7 @@ jobs:
       - run: npm ci                # incl. @pdf-testkit/cli (+ pdfjs-dist if snapshotting a .pdf)
       # produce the current document however your app builds it, then snapshot it:
       - run: npx pdf-testkit snapshot dist/invoice.pdf --out current.json
-      - uses: danmolitor/pdf-testkit/packages/action@v0.2.2
+      - uses: danmolitor/pdf-testkit/packages/action@v0.2.3
         with:
           baseline: baselines/invoice.json   # committed to your repo
           current: current.json              # a raw .pdf works too (needs pdfjs-dist)
@@ -215,7 +215,7 @@ Quickstart:
 Or use the Action in service mode — it runs your installed CLI and otherwise stays out of the way:
 
 ```yaml
-- uses: danmolitor/pdf-testkit/packages/action@v0.2.2
+- uses: danmolitor/pdf-testkit/packages/action@v0.2.3
   with:
     service-token: ${{ secrets.PDF_TESTKIT_TOKEN }}
     service-url: https://review-api.formepdf.com
