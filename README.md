@@ -189,8 +189,8 @@ Quickstart:
 
 1. Install the GitHub App on the repository and create its CI token; store it as
    `PDF_TESTKIT_TOKEN`.
-2. Install the CLI and the PDF reader it uses: `npm i -D @pdf-testkit/cli pdfjs-dist`.
-   Then point it at the documents your tests already produce:
+2. Install the CLI: `npm i -D @pdf-testkit/cli`. Then point it at the documents your tests
+   already produce:
    ```yaml
    - run: npm run build:docs                 # whatever renders your PDFs
    - run: npx pdf-testkit upload dist/invoice.pdf dist/report.pdf
