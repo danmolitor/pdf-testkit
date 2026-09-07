@@ -189,15 +189,17 @@ Quickstart:
 
 1. Install the GitHub App on the repository and create its CI token; store it as
    `PDF_TESTKIT_TOKEN`.
-2. Point the CLI at the documents your tests already produce:
+2. Install the CLI and the PDF reader it uses: `npm i -D @pdf-testkit/cli pdfjs-dist`.
+   Then point it at the documents your tests already produce:
    ```yaml
    - run: npm run build:docs                 # whatever renders your PDFs
    - run: npx pdf-testkit upload dist/invoice.pdf dist/report.pdf
      env:
-       PDF_TESTKIT_SERVICE_URL: https://api.pdf-testkit.dev
+       PDF_TESTKIT_SERVICE_URL: https://review-api.formepdf.com
        PDF_TESTKIT_TOKEN: ${{ secrets.PDF_TESTKIT_TOKEN }}
    ```
-   Page images need `npm i -D pdfjs-dist @napi-rs/canvas` (prebuilt binaries, no native toolchain).
+   Page images (an org opted into them) additionally need `npm i -D @napi-rs/canvas` (prebuilt
+   binaries, no native toolchain). The service URL is the one the review app shows you.
    On GitHub Actions the commit, branch, PR and run identity are read from the environment; on
    `pull_request` events the PR's head SHA is used, never the merge commit. Elsewhere pass
    `--repo --commit --branch --run-id` or the `PDF_TESTKIT_*` equivalents.
@@ -216,7 +218,7 @@ Or use the Action in service mode — it runs your installed CLI and otherwise s
 - uses: danmolitor/pdf-testkit/packages/action@v0.2.2
   with:
     service-token: ${{ secrets.PDF_TESTKIT_TOKEN }}
-    service-url: https://api.pdf-testkit.dev
+    service-url: https://review-api.formepdf.com
     documents: |
       dist/invoice.pdf
       dist/report.pdf
