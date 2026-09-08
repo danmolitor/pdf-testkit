@@ -1,0 +1,598 @@
+{"report":{"buildInformation":{"releaseDetails":[{
+  "id" : "core",
+  "version" : "1.30.2",
+  "buildDate" : 1780501380000
+},{
+  "id" : "validation-model",
+  "version" : "1.30.2",
+  "buildDate" : 1780501560000
+},{
+  "id" : "apps",
+  "version" : "1.30.2",
+  "buildDate" : 1780502100000
+}]},"jobs":[{"itemDetails":{
+  "name" : "dist/review/pdfkit-invoice.pdf",
+  "size" : 2110
+},"validationResult":[ {
+  "details" : {
+    "passedRules" : 99,
+    "failedRules" : 7,
+    "passedChecks" : 405,
+    "failedChecks" : 90,
+    "tags" : [ "artifact", "metadata", "syntax", "text", "lang", "structure", "font" ],
+    "ruleSummaries" : [ {
+      "ruleStatus" : "FAILED",
+      "specification" : "ISO 14289-1:2014",
+      "clause" : "7.1",
+      "testNumber" : 8,
+      "status" : "failed",
+      "failedChecks" : 1,
+      "tags" : [ "metadata" ],
+      "description" : "The Catalog dictionary of a conforming file shall contain the Metadata key whose value is a metadata stream as defined in ISO 32000-1:2008, 14.3.2. The metadata stream dictionary shall contain entry Type with value /Metadata and entry Subtype with value /XML",
+      "object" : "PDDocument",
+      "test" : "containsMetadata == true",
+      "checks" : [ {
+        "status" : "failed",
+        "context" : "root/document[0]",
+        "errorMessage" : "The document catalog dictionary doesn't contain metadata key or metadata stream dictionary does not contain either entry Type with value /Metadata or entry Subtype with value /XML",
+        "errorArguments" : [ ]
+      } ]
+    }, {
+      "ruleStatus" : "FAILED",
+      "specification" : "ISO 14289-1:2014",
+      "clause" : "6.2",
+      "testNumber" : 1,
+      "status" : "failed",
+      "failedChecks" : 1,
+      "tags" : [ "syntax" ],
+      "description" : "The document catalog dictionary shall include a MarkInfo dictionary containing an entry, Marked, whose value shall be true",
+      "object" : "CosDocument",
+      "test" : "Marked == true",
+      "checks" : [ {
+        "status" : "failed",
+        "context" : "root",
+        "errorMessage" : "MarkInfo dictionary is not present in the document catalog, or Marked entry is set to false or is not present in the MarkInfo dictionary (MarkInfo = null, Marked = null)",
+        "errorArguments" : [ null, null ]
+      } ]
+    }, {
+      "ruleStatus" : "FAILED",
+      "specification" : "ISO 14289-1:2014",
+      "clause" : "7.1",
+      "testNumber" : 10,
+      "status" : "failed",
+      "failedChecks" : 1,
+      "tags" : [ "syntax" ],
+      "description" : "The document catalog dictionary shall include a ViewerPreferences dictionary containing a DisplayDocTitle key, whose value shall be true",
+      "object" : "CosDocument",
+      "test" : "DisplayDocTitle == true",
+      "checks" : [ {
+        "status" : "failed",
+        "context" : "root",
+        "errorMessage" : "ViewerPreferences dictionary is not present in the document Catalog, or DisplayDocTitle key is set to false or is not present in the ViewerPreferences dictionary (ViewerPreferences = null, DisplayDocTitle = null)",
+        "errorArguments" : [ null, null ]
+      } ]
+    }, {
+      "ruleStatus" : "FAILED",
+      "specification" : "ISO 14289-1:2014",
+      "clause" : "7.21.4.1",
+      "testNumber" : 1,
+      "status" : "failed",
+      "failedChecks" : 2,
+      "tags" : [ "font" ],
+      "description" : "The font programs for all fonts used for rendering within a conforming file shall be embedded within that file, as defined in ISO 32000-1:2008, 9.9",
+      "object" : "PDFont",
+      "test" : "Subtype == \"Type3\" || Subtype == \"Type0\" || renderingMode == 3 || containsFontFile == true",
+      "checks" : [ {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/operators[6]/font[0](Helvetica-Bold)",
+        "errorMessage" : "The font program is not embedded",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/operators[22]/font[0](Helvetica)",
+        "errorMessage" : "The font program is not embedded",
+        "errorArguments" : [ ]
+      } ]
+    }, {
+      "ruleStatus" : "FAILED",
+      "specification" : "ISO 14289-1:2014",
+      "clause" : "7.1",
+      "testNumber" : 11,
+      "status" : "failed",
+      "failedChecks" : 1,
+      "tags" : [ "structure" ],
+      "description" : "The logical structure of the conforming file shall be described by a structure hierarchy rooted in the StructTreeRoot entry of the document catalog dictionary, as described in ISO 32000-1:2008, 14.7",
+      "object" : "PDDocument",
+      "test" : "containsStructTreeRoot == true",
+      "checks" : [ {
+        "status" : "failed",
+        "context" : "root/document[0]",
+        "errorMessage" : "StructTreeRoot entry is not present in the document catalog",
+        "errorArguments" : [ ]
+      } ]
+    }, {
+      "ruleStatus" : "FAILED",
+      "specification" : "ISO 14289-1:2014",
+      "clause" : "7.1",
+      "testNumber" : 3,
+      "status" : "failed",
+      "failedChecks" : 46,
+      "tags" : [ "artifact" ],
+      "description" : "Content shall be marked as Artifact or tagged as real content",
+      "object" : "SESimpleContentItem",
+      "test" : "isTaggedContent == true || parentsTags.contains('Artifact') == true",
+      "checks" : [ {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[0]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[1]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[2]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[3]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[4]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[5]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[6]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[7]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[8]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[9]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[10]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[11]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[12]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[13]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[14]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[15]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[16]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[17]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[18]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[19]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[20]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[21]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[22]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[23]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[24]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[25]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[26]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[27]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[28]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[29]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[30]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[31]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[32]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[33]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[34]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[35]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[36]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[37]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[38]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[39]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[40]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[41]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[42]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[43]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[44]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[45]",
+        "errorMessage" : "Content is neither marked as Artifact nor tagged as real content",
+        "errorArguments" : [ ]
+      } ]
+    }, {
+      "ruleStatus" : "FAILED",
+      "specification" : "ISO 14289-1:2014",
+      "clause" : "7.2",
+      "testNumber" : 34,
+      "status" : "failed",
+      "failedChecks" : 38,
+      "tags" : [ "text", "lang" ],
+      "description" : "Natural language for text in page content shall be determined",
+      "object" : "SETextItem",
+      "test" : "gContainsCatalogLang == true || Lang != null",
+      "checks" : [ {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[0]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[1]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[2]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[3]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[4]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[5]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[6]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[7]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[8]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[9]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[11]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[12]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[13]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[14]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[16]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[17]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[18]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[19]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[21]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[22]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[23]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[24]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[26]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[27]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[28]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[29]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[31]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[32]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[33]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[34]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[36]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[37]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[38]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[39]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[41]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[42]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[44]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      }, {
+        "status" : "failed",
+        "context" : "root/document[0]/pages[0](7 0 obj PDPage)/contentStream[0](5 0 obj PDSemanticContentStream)/content[0]/contentItem[45]",
+        "errorMessage" : "Natural language for text in page content cannot be determined",
+        "errorArguments" : [ ]
+      } ]
+    } ]
+  },
+  "jobEndStatus" : "normal",
+  "profileName" : "PDF/UA-1 validation profile",
+  "statement" : "PDF file is not compliant with Validation Profile requirements.",
+  "compliant" : false
+} ],"processingTime":{
+  "start" : 1788898132270,
+  "finish" : 1788898132414,
+  "difference" : 144,
+  "duration" : "00:00:00.144"
+}}],"batchSummary":{
+  "duration" : {
+    "start" : 1788898132233,
+    "finish" : 1788898132434,
+    "difference" : 201,
+    "duration" : "00:00:00.201"
+  },
+  "totalJobs" : 1,
+  "outOfMemory" : 0,
+  "veraExceptions" : 0,
+  "failedEncryptedJobs" : 0,
+  "failedParsingJobs" : 0,
+  "validationSummary" : {
+    "nonCompliantPdfaCount" : 1,
+    "compliantPdfaCount" : 0,
+    "failedJobCount" : 0,
+    "totalJobCount" : 1,
+    "successfulJobCount" : 1
+  },
+  "featuresSummary" : {
+    "failedJobCount" : 0,
+    "totalJobCount" : 0,
+    "successfulJobCount" : 0
+  },
+  "repairSummary" : {
+    "failedJobCount" : 0,
+    "totalJobCount" : 0,
+    "successfulJobCount" : 0
+  },
+  "multiJob" : false
+}}}

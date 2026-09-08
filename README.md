@@ -160,7 +160,7 @@ jobs:
       - run: npm ci                # incl. @pdf-testkit/cli (+ pdfjs-dist if snapshotting a .pdf)
       # produce the current document however your app builds it, then snapshot it:
       - run: npx pdf-testkit snapshot dist/invoice.pdf --out current.json
-      - uses: danmolitor/pdf-testkit/packages/action@v0.2.3
+      - uses: danmolitor/pdf-testkit/packages/action@v0.3.0
         with:
           baseline: baselines/invoice.json   # committed to your repo
           current: current.json              # a raw .pdf works too (needs pdfjs-dist)
@@ -215,7 +215,7 @@ Quickstart:
 Or use the Action in service mode — it runs your installed CLI and otherwise stays out of the way:
 
 ```yaml
-- uses: danmolitor/pdf-testkit/packages/action@v0.2.3
+- uses: danmolitor/pdf-testkit/packages/action@v0.3.0
   with:
     service-token: ${{ secrets.PDF_TESTKIT_TOKEN }}
     service-url: https://review-api.formepdf.com
@@ -223,6 +223,20 @@ Or use the Action in service mode — it runs your installed CLI and otherwise s
       dist/invoice.pdf
       dist/report.pdf
 ```
+
+**Conformance results.** If your CI already runs a validator, attach its report and the service
+records the verdict, attributed to that validator by name and version, on the document's timeline:
+
+```yaml
+- run: verapdf -f ua1 dist/*.pdf > reports/ua1.xml || true     # your validator, your gate
+- run: npx pdf-testkit upload dist/*.pdf --conformance reports/ua1.xml
+```
+
+Reads veraPDF's XML or JSON report, or a `forme-review-conformance/1` JSON file for any other
+validator (documented in `packages/protocol/PROTOCOL.md` §9b). pdf-testkit never validates, and
+a verdict never changes the check: a validator confirms structure exists; it cannot confirm the
+document is accessible. Policy: veraPDF is the only third-party format parsed; everything else,
+including validators we use ourselves, goes through the documented JSON.
 
 `upload` exit codes: **0** reported (or service unavailable without `--require-service`) ·
 **1** `--fail-on` gate hit · **2** configuration error (revoked token, wrong repository, unreadable

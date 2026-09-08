@@ -34,6 +34,9 @@ inputs:
   images:
     description: 'Service mode: set to false to upload structure only'
     required: false
+  conformance:
+    description: 'Service mode: validator report files to attach (veraPDF XML/JSON, or a forme-review-conformance/1 file), one path or glob per line. Recorded and attributed to the validator; never validated here.'
+    required: false
   require-service:
     description: 'Service mode: fail the job (instead of passing) when the service is unreachable'
     required: false

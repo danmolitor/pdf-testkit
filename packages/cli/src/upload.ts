@@ -1,11 +1,16 @@
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { readFile } from 'node:fs/promises';
+import { globSync } from 'node:fs';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import {
   diffSnapshots,
+  matchConformanceToDocuments,
+  parseConformanceReport,
+  type ConformanceItem,
+  type ConformanceResult,
   fromPdf,
   groupEvents,
   loadSnapshotFromFile,
@@ -45,6 +50,8 @@ export interface UploadOptions {
   /** The customer's gate. `null` = do not fail locally; the service's check is the gate. */
   failOn: FailOn | null;
   requireService: boolean;
+  /** Validator report files (veraPDF XML/JSON, or forme-review-conformance/1), paths or globs relative to cwd. */
+  conformance?: string[];
   retryDelaysMs?: number[];
   log?: (line: string) => void;
   /** Test hook: runs just before each run-creation request. */
@@ -145,6 +152,32 @@ export async function runUpload(opts: UploadOptions): Promise<UploadResult> {
   const result: UploadResult = { exitCode: EXIT.ok, batchId: null, documents: [] };
   const ctx = opts.context;
 
+  // Conformance reports are read and matched before anything is sent: a
+  // malformed report is a configuration error (exit 2) and opens no batch.
+  let conformanceByDocument: Record<string, ConformanceResult[]> = {};
+  if (opts.conformance && opts.conformance.length > 0) {
+    try {
+      const items: ConformanceItem[] = [];
+      for (const pattern of opts.conformance) {
+        const files = globSync(pattern, { cwd });
+        if (files.length === 0) throw new Error(`--conformance ${pattern}: no such file`);
+        for (const f of files) {
+          const parsed = parseConformanceReport(await readFile(resolve(cwd, f), 'utf8'), { file: f });
+          items.push(...parsed.items);
+        }
+      }
+      const documentPaths = opts.documents.map((d) => { try { return normalizeDocumentPath(d, cwd); } catch { return d; } });
+      const matched = matchConformanceToDocuments(items, documentPaths);
+      conformanceByDocument = matched.byDocument;
+      for (const u of matched.unmatched) log(`note: conformance result for ${u} matches none of the uploaded documents; skipped`);
+    } catch (err) {
+      result.exitCode = EXIT.config;
+      result.error = `conformance: ${(err as Error).message}`;
+      log(`✗ ${result.error}`);
+      return result;
+    }
+  }
+
   try {
     const batch = await client.post<BatchResponse>('/ingest/v1/batches', {
       repository: { provider: 'github', owner: ctx.repository.owner, name: ctx.repository.name },
@@ -174,7 +207,7 @@ export async function runUpload(opts: UploadOptions): Promise<UploadResult> {
         continue;
       }
       try {
-        const doc = await uploadOne(client, batch.batch_id, path, resolve(cwd, path), { ...opts, gate, wantImages, log });
+        const doc = await uploadOne(client, batch.batch_id, path, resolve(cwd, path), { ...opts, gate, wantImages, log, conformanceResults: conformanceByDocument[path] ?? null });
         result.documents.push(doc);
         reported.push(path);
         if (opts.failOn && doc.outcome === 'blocked') gateHit = true;
@@ -221,8 +254,9 @@ async function uploadOne(
   batchId: string,
   path: string,
   absPath: string,
-  o: UploadOptions & { gate: FailOn; wantImages: boolean; log: (l: string) => void },
+  o: UploadOptions & { gate: FailOn; wantImages: boolean; log: (l: string) => void; conformanceResults: ConformanceResult[] | null },
 ): Promise<UploadedDocument> {
+  const conformance = o.conformanceResults ? { conformance: o.conformanceResults } : {};
   const loaded = await loadDocument(absPath);
   const { snapshot } = loaded;
 
@@ -262,7 +296,7 @@ async function uploadOne(
     let request: RunRequest;
     if (!lookup.baseline) {
       kind = 'established';
-      request = { document_path: path, kind, baseline_run_id: null, structure, diff: null, images };
+      request = { document_path: path, kind, baseline_run_id: null, structure, diff: null, images, ...conformance };
     } else {
       kind = 'compared';
       const base = parseBaselineBlob(await client.getObject(lookup.baseline.structure_url));
@@ -277,6 +311,7 @@ async function uploadOne(
         structure,
         diff: toReportedDiff(base, snapshot, diff, o.gate, { extractMs: loaded.extractMs, diffMs, renderMs }),
         images,
+        ...conformance,
       };
     }
     o.onBeforeRun?.();
@@ -307,6 +342,7 @@ async function uploadOne(
       ? 'baseline established (nothing compared)'
       : `${eventCount} event(s) · ${run.outcome} · ${run.review_state}`;
   o.log(`${run.disposition === 'unchanged' ? '=' : '✓'} ${path}: ${summary}${run.disposition === 'unchanged' ? ' (unchanged; existing run kept)' : ''}`);
+  for (const c of o.conformanceResults ?? []) o.log(`    conformance: ${c.profile} ${c.verdict}${c.failure_count ? ` (${c.failure_count} failed rule${c.failure_count === 1 ? '' : 's'})` : ''} · reported by ${c.tool.name} ${c.tool.version}`);
 
   return { path, status: run.disposition, runId: run.run_id, kind: run.kind, outcome: run.outcome, reviewState: run.review_state, events: eventCount };
 }

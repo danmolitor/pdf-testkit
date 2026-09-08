@@ -13,6 +13,8 @@ export interface ServiceInputs {
     images: string;
     failOn: string;
     requireService: string;
+    /** Validator report files (veraPDF XML/JSON or forme-review-conformance/1), one per line. */
+    conformance?: string;
 }
 /** Map Action inputs to `pdf-testkit upload` arguments. Pure, so it is testable. */
 export declare function buildUploadArgs(inputs: ServiceInputs): string[];

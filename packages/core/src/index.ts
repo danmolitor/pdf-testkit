@@ -71,3 +71,8 @@ export { readSnapshotFile, writeSnapshotFile } from './snapshot/io.js';
 export { loadSnapshotFromFile } from './snapshot/load.js';
 export { serializeSnapshot, computeContentHash, stableStringify } from './snapshot/serialize.js';
 export { normalizeText, textPreview, textSimilarity } from './text/normalize.js';
+
+// Conformance results from the customer's validator (veraPDF, or the documented
+// JSON shape). Recorded and attributed; never validated here.
+export { parseConformanceReport, matchConformanceToDocuments, profileShortName, ConformanceReportError, CONFORMANCE_FAILURES_MAX, CONFORMANCE_DESCRIPTION_MAX, FORME_CONFORMANCE_FORMAT } from './conformance/index.js';
+export type { ConformanceResult, ConformanceFailure, ConformanceVerdict, ConformanceItem, ParsedConformanceReport } from './conformance/index.js';

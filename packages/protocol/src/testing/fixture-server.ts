@@ -82,6 +82,7 @@ export interface StoredRun {
   superseded_by: string | null;
   status: 'pending' | 'ready';
   pdf_testkit_version: string;
+  conformance: unknown[];
 }
 
 export interface StoredBaseline {
@@ -325,6 +326,7 @@ export async function startFixtureServer(opts: FixtureServerOptions): Promise<Fi
       superseded_by: null,
       status: 'pending',
       pdf_testkit_version: batch.tool_version,
+      conformance: req.conformance ?? [],
     };
     state.runs.set(runId, run);
 

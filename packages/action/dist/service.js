@@ -19,6 +19,9 @@ export function buildUploadArgs(inputs) {
         args.push('--fail-on', inputs.failOn);
     if (inputs.requireService === 'true')
         args.push('--require-service');
+    const reports = (inputs.conformance ?? '').split(/\r?\n|,/).map((s) => s.trim()).filter(Boolean);
+    if (reports.length > 0)
+        args.push('--conformance', ...reports);
     return args;
 }
 /** PROTOCOL.md §9, worded for a job log. */

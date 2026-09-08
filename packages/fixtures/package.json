@@ -1,6 +1,6 @@
 {
   "name": "@pdf-testkit/fixtures",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "Shared test fixtures (sample PDFs) for pdf-testkit",
   "license": "MIT",
   "private": true,

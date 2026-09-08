@@ -13,6 +13,8 @@ export interface ServiceInputs {
   images: string;
   failOn: string;
   requireService: string;
+  /** Validator report files (veraPDF XML/JSON or forme-review-conformance/1), one per line. */
+  conformance?: string;
 }
 
 /** Map Action inputs to `pdf-testkit upload` arguments. Pure, so it is testable. */
@@ -30,6 +32,8 @@ export function buildUploadArgs(inputs: ServiceInputs): string[] {
   // Unset in service mode means "the service's check is the gate".
   if (inputs.failOn) args.push('--fail-on', inputs.failOn);
   if (inputs.requireService === 'true') args.push('--require-service');
+  const reports = (inputs.conformance ?? '').split(/\r?\n|,/).map((s) => s.trim()).filter(Boolean);
+  if (reports.length > 0) args.push('--conformance', ...reports);
   return args;
 }
 

@@ -156,6 +156,33 @@ export const Structure = z.object({
   node_count: nonNegInt,
 });
 
+/**
+ * Conformance results (PDF/UA, PDF/A, …) produced by a DIFFERENT tool in the
+ * customer's CI. Attributed to that tool, named and versioned, and never
+ * folded into pdf-testkit's own reporting: the service records what the
+ * validator said and shows it over time; it does not validate. Optional and
+ * additive; a CLI that omits it uploads exactly as before.
+ */
+export const ConformanceVerdict = z.enum(['pass', 'fail', 'error']);
+export const ConformanceFailure = z.object({
+  clause: z.string().min(1).max(64),
+  test: z.number().int().nonnegative().nullable(),
+  count: z.number().int().nonnegative(),
+  description: z.string().max(300),
+});
+export const CONFORMANCE_FAILURES_MAX = 200;
+export const ConformanceResult = z.object({
+  /** As the validator reported it; never normalised away, never rejected. */
+  profile: z.string().min(1).max(120),
+  verdict: ConformanceVerdict,
+  tool: z.object({ name: z.string().min(1).max(60), version: z.string().min(1).max(60) }),
+  ran_at: z.string().datetime({ offset: true }).nullable(),
+  source: z.object({ format: z.string().min(1).max(60), file: z.string().max(400).nullable() }),
+  /** Uncapped total, so a truncated `failures` list is honest. */
+  failure_count: z.number().int().nonnegative(),
+  failures: z.array(ConformanceFailure).max(CONFORMANCE_FAILURES_MAX),
+});
+
 export const RunRequest = z
   .object({
     document_path: RepoPath,
@@ -164,6 +191,8 @@ export const RunRequest = z
     structure: Structure,
     diff: Diff.nullable(),
     images: Images.nullable(),
+    /** One result per (profile, tool); a file is routinely validated against two profiles. */
+    conformance: z.array(ConformanceResult).max(20).optional(),
   })
   .superRefine((run, ctx) => {
     if (run.kind === 'established') {
@@ -284,6 +313,9 @@ export type Images = z.infer<typeof Images>;
 export type ImagePage = z.infer<typeof ImagePage>;
 export type Structure = z.infer<typeof Structure>;
 export type RunRequest = z.infer<typeof RunRequest>;
+export type ConformanceResult = z.infer<typeof ConformanceResult>;
+export type ConformanceFailure = z.infer<typeof ConformanceFailure>;
+export type ConformanceVerdict = z.infer<typeof ConformanceVerdict>;
 export type RunResponse = z.infer<typeof RunResponse>;
 export type PresignedPut = z.infer<typeof PresignedPut>;
 export type RunCompleteRequest = z.infer<typeof RunCompleteRequest>;

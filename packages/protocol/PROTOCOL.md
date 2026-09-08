@@ -342,6 +342,42 @@ exit 2. A revoked token silently passing forever would be worse than a red build
 service is the gate, and a failed job step would double-report it. Customers who
 want the job itself to fail pass `--fail-on`.
 
+## 9b. Conformance results (additive, since 0.3.0)
+
+A run request may carry `conformance`: results produced by a **different tool** in the
+customer's CI (veraPDF, or anything through the documented JSON shape). The service records
+what that validator said, attributed to it by name and version, and shows it over time. It
+never validates, never re-checks, never folds a verdict into pdf-testkit's own reporting, and
+never lets a verdict change `outcome` or `review_state`.
+
+```jsonc
+"conformance": [
+  {
+    "profile": "PDF/UA-1",                    // as the validator reported it; unknown profiles are kept verbatim
+    "verdict": "pass" | "fail" | "error",      // error: the validator could not assess the file (distinct from fail)
+    "tool": { "name": "veraPDF", "version": "1.30.2" },
+    "ran_at": "2026-09-08T01:04:11.000Z" | null,
+    "source": { "format": "verapdf-mrr-xml", "file": "reports/ua1.xml" },
+    "failure_count": 7,                       // uncapped
+    "failures": [                             // at most 200; descriptions at most 300 characters
+      { "clause": "7.2", "test": 34, "count": 38, "description": "…" }
+    ]
+  }
+]
+```
+
+One entry per (profile, tool); at most 20 per run. The field is optional and additive: a CLI
+that omits it uploads exactly as before, forever. The protocol version is unchanged.
+
+**Formats the CLI reads** (`pdf-testkit upload … --conformance <path>`): veraPDF's MRR report,
+XML (`verapdf -f ua1 file.pdf`) or JSON (`--format json`), and `forme-review-conformance/1`,
+a JSON file `{ "format": "forme-review-conformance/1", "documents": { "<path>": [ <result>… ] } }`
+in exactly the shape above. **Policy:** veraPDF is the only third-party format parsed, because
+it is the reference validator for PDF/A and PDF/UA and its schema has been stable for years.
+Every other validator, including ones the maintainers use themselves (Mustang for e-invoicing),
+goes through the documented JSON, written by a small adapter in the customer's CI. There is no
+second parser.
+
 ## 10. What is deliberately not in v1
 
 - Per-PR baselines, cross-document baselines, any baseline other than the default
@@ -349,9 +385,5 @@ want the job itself to fail pass `--fail-on`.
 - Server-side diffing, hashing, or re-grouping. The service trusts
   `structure.hash` from a token that can only write to its own repository.
 - Third-party producers. The schema is public because the CLI is; support is not.
-- Conformance results (PDF/UA, PDF/A). A slot is reserved: a future
-  `conformance: { tool, tool_version, profile, verdict }` on the run request,
-  attributed to the producing tool and never folded into pdf-testkit's reporting
-  (lifecycle spec §4).
 - Any way for the CLI to approve, reject, untrack, rename, or dismiss anything.
   The CI token writes runs and nothing else.

@@ -203,3 +203,39 @@ describe('upload — command line', () => {
     expect(server.batches.size).toBe(1);
   });
 });
+
+describe('upload — conformance results from the customer\'s validator', () => {
+  const report = (name: string) => readFileSync(fixtures(`../core/test/fixtures/conformance/${name}`), 'utf8');
+  it('attaches the parsed veraPDF result to the document it names, attributed to veraPDF by version', async () => {
+    mkdirSync(join(cwd, 'reports'));
+    writeFileSync(join(cwd, 'reports/ua1.xml'), report('verapdf-ua1-fail.xml').replace('dist/review/pdfkit-invoice.pdf', 'docs/invoice.pdf'));
+    const r = await runUpload(opts(['docs/invoice.pdf'], { images: false, conformance: ['reports/ua1.xml'] }));
+    expect(r.exitCode).toBe(0);
+    const run = [...server.runs.values()][0]!;
+    expect(run.conformance).toHaveLength(1);
+    expect(run.conformance[0]).toMatchObject({ profile: 'PDF/UA-1', verdict: 'fail', tool: { name: 'veraPDF', version: '1.30.2' }, failure_count: 7, source: { format: 'verapdf-mrr-xml', file: 'reports/ua1.xml' } });
+  });
+  it('a result naming a document that was not uploaded is skipped with a note, not an error', async () => {
+    mkdirSync(join(cwd, 'reports'));
+    writeFileSync(join(cwd, 'reports/ua1.xml'), report('verapdf-ua1-pass.xml'));
+    const lines: string[] = [];
+    const r = await runUpload(opts(['docs/invoice.pdf'], { images: false, conformance: ['reports/*.xml'], log: (l) => lines.push(l) }));
+    expect(r.exitCode).toBe(0);
+    expect([...server.runs.values()][0]!.conformance).toEqual([]);
+    expect(lines.some((l) => l.includes('matches none of the uploaded documents'))).toBe(true);
+  });
+  it('a malformed report is a configuration error and opens no batch', async () => {
+    writeFileSync(join(cwd, 'bad.xml'), '<html>not a report</html>');
+    const r = await runUpload(opts(['docs/invoice.pdf'], { images: false, conformance: ['bad.xml'] }));
+    expect(r.exitCode).toBe(2);
+    expect(r.error).toMatch(/conformance: .*not a veraPDF report/);
+    expect(server.batches.size).toBe(0);
+  });
+  it('a profile the parser does not recognise is uploaded as reported', async () => {
+    mkdirSync(join(cwd, 'reports'));
+    writeFileSync(join(cwd, 'reports/x.xml'), report('verapdf-ua1-fail.xml').replace('dist/review/pdfkit-invoice.pdf', 'docs/invoice.pdf').replace('profileName="PDF/UA-1 validation profile"', 'profileName="WTPDF 1.0 validation profile"'));
+    const r = await runUpload(opts(['docs/invoice.pdf'], { images: false, conformance: ['reports/x.xml'] }));
+    expect(r.exitCode).toBe(0);
+    expect(([...server.runs.values()][0]!.conformance[0] as { profile: string }).profile).toBe('WTPDF 1.0');
+  });
+});

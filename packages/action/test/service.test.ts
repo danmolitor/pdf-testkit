@@ -31,3 +31,11 @@ describe('action service mode', () => {
     expect(describeExit(3)).toMatch(/unavailable/);
   });
 });
+
+describe('conformance reports', () => {
+  it('passes each report path to --conformance', async () => {
+    const { buildUploadArgs } = await import('../src/service.js');
+    const args = buildUploadArgs({ documents: 'dist/a.pdf', serviceUrl: 'https://s', serviceToken: 't', dpi: '', images: '', failOn: '', requireService: '', conformance: 'reports/ua1.xml\nreports/*.json' });
+    expect(args.slice(args.indexOf('--conformance'))).toEqual(['--conformance', 'reports/ua1.xml', 'reports/*.json']);
+  });
+});
