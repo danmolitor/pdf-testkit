@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { readFile } from 'node:fs/promises';
-import { globSync } from 'node:fs';
+import { readFile, readdir } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { gunzipSync, gzipSync } from 'node:zlib';
@@ -159,7 +158,7 @@ export async function runUpload(opts: UploadOptions): Promise<UploadResult> {
     try {
       const items: ConformanceItem[] = [];
       for (const pattern of opts.conformance) {
-        const files = globSync(pattern, { cwd });
+        const files = await expandPattern(pattern, cwd);
         if (files.length === 0) throw new Error(`--conformance ${pattern}: no such file`);
         for (const f of files) {
           const parsed = parseConformanceReport(await readFile(resolve(cwd, f), 'utf8'), { file: f });
@@ -348,3 +347,24 @@ async function uploadOne(
 }
 
 export { computeOutcome };
+
+/**
+ * `reports/*.xml` → the matching files in that one directory. Literal paths pass
+ * through. Only `*` and `?` in the last segment; no recursion — the report
+ * directory is the customer's, and fs.globSync needs Node 22.
+ */
+async function expandPattern(pattern: string, cwd: string): Promise<string[]> {
+  if (!/[*?]/.test(pattern)) return [pattern];
+  const slash = pattern.lastIndexOf('/');
+  const dir = slash >= 0 ? pattern.slice(0, slash) : '.';
+  const glob = pattern.slice(slash + 1);
+  if (/[*?]/.test(dir)) throw new Error(`--conformance ${pattern}: wildcards are only supported in the file name`);
+  const re = new RegExp('^' + glob.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.') + '$');
+  let names: string[];
+  try {
+    names = await readdir(resolve(cwd, dir));
+  } catch {
+    return [];
+  }
+  return names.filter((n) => re.test(n)).sort().map((n) => (dir === '.' ? n : `${dir}/${n}`));
+}
