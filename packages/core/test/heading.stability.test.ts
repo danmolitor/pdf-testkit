@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import { diffSnapshots, fromPdf } from '@pdf-testkit/core';
+import { buildHeadingModel } from '../src/extract/pdfjs/headings.js';
+import type { PdfTextRun } from '../src/extract/pdfjs/textRuns.js';
 import { node, snapshot } from './helpers';
 
 /**
@@ -26,6 +28,26 @@ describe.each(['forme', 'takumi'] as const)('pdfjs heading inference is stable u
     expect(r.events.filter((e) => e.type === 'heading-hierarchy-changed').map((e) => e.message)).toEqual([]);
     // The table did grow; that is the event.
     expect(r.events.some((e) => e.type === 'table-resized')).toBe(true);
+  });
+});
+
+describe('heading levels are bands anchored to the top heading', () => {
+  const run = (text: string, fontSize: number, bold = false): PdfTextRun => ({ x: 40, y: 40, width: text.length * fontSize * 0.5, height: fontSize, text, fontSize, fontName: bold ? 'g_f2-Bold' : 'g_f1', bold, italic: false, charCount: text.length });
+  const body = Array.from({ length: 12 }, (_, i) => run(`Body line ${i} of the invoice text, long enough to be the body.`, 12));
+  it("a document's only heading is H1, whatever its size ratio", () => {
+    // 20pt on a 12pt body: 1.67×, the third band by ratio; still the top heading.
+    const m = buildHeadingModel([...body, run('Rechnung Nr. 471102', 20)]);
+    expect(m.levelOf(run('Rechnung Nr. 471102', 20))).toBe(1);
+  });
+  it('lower headings keep their band distance from the top one', () => {
+    const m = buildHeadingModel([...body, run('Title', 30), run('Section', 20), run('Sub', 16)]);
+    expect([30, 20, 16].map((sz) => m.levelOf(run('x', sz)))).toEqual([1, 3, 4]);
+  });
+  it('a middle tier vanishing moves nothing else', () => {
+    const withMiddle = buildHeadingModel([...body, run('Title', 30), run('Section', 20), run('Sub', 16)]);
+    const without = buildHeadingModel([...body, run('Title', 30), run('Sub', 16)]);
+    expect(without.levelOf(run('Title', 30))).toBe(withMiddle.levelOf(run('Title', 30)));
+    expect(without.levelOf(run('Sub', 16))).toBe(withMiddle.levelOf(run('Sub', 16)));
   });
 });
 

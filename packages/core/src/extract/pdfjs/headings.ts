@@ -12,24 +12,21 @@ const HEADING_RATIO = 1.15;
 const BOLD_RATIO = 1.05;
 
 /**
- * Size ratio to the body baseline at which a run is H1..H5. A size-separated
- * run that clears none of these is H5; a weight-only heading is H6.
+ * Size ratio to the body baseline that puts a run in a band. Bands, not ranks
+ * among the sizes present: levels used to be ranks (the largest size seen was
+ * H1, the next H2, and so on), so every run's level depended on which other
+ * sizes the document happened to contain, and adding rows to a table (which
+ * changed what the table detector consumed, and so which sizes remained in
+ * the prose set) re-ranked unrelated text and fired heading-hierarchy-changed
+ * at error severity. Extraction-fidelity experiment, 2026-09-09, finding P2.
  *
- * Levels are ABSOLUTE bands, not ranks among the sizes present. They used to be
- * ranks: the largest size seen was H1, the next H2, and so on. That made every
- * run's level depend on which other sizes the document happened to contain,
- * so adding rows to a table (which changed which runs the table detector
- * consumed, and so which sizes remained in the prose set) re-ranked unrelated
- * text and fired heading-hierarchy-changed at error severity. Extraction-
- * fidelity experiment, 2026-09-09, finding P2. A band depends only on the
- * run's own size and the body size.
+ * The bands are anchored to the document's largest heading band, which is H1:
+ * a document whose only heading is 20pt on a 12pt body has an H1, not an H3,
+ * and the levels below keep their band distance from it. A middle tier
+ * vanishing (the original failure) moves nothing; only the top heading
+ * disappearing would, and a title rarely does.
  */
-const LEVEL_BANDS: ReadonlyArray<readonly [ratio: number, level: number]> = [
-  [2.4, 1],
-  [1.8, 2],
-  [1.5, 3],
-  [1.3, 4],
-];
+const BAND_RATIOS: readonly number[] = [2.4, 1.8, 1.5, 1.3];
 
 /**
  * Infer heading levels for raw pdfjs runs by font size. The char-count-weighted
@@ -56,16 +53,18 @@ export function buildHeadingModel(runs: PdfTextRun[]): HeadingModel {
 
   const sizeSeparated = (r: PdfTextRun): boolean => r.fontSize > bodySize * HEADING_RATIO;
   const boldSeparated = (r: PdfTextRun): boolean => r.bold && r.fontSize >= bodySize * BOLD_RATIO;
-  const bandOf = (r: PdfTextRun): number => {
-    const ratio = bodySize > 0 ? r.fontSize / bodySize : 1;
-    for (const [min, level] of LEVEL_BANDS) if (ratio >= min) return level;
-    return 5;
+  // 0 = the largest band … BAND_RATIOS.length = size-separated but below every band.
+  const bandOf = (size: number): number => {
+    const ratio = bodySize > 0 ? size / bodySize : 1;
+    const i = BAND_RATIOS.findIndex((min) => ratio >= min);
+    return i === -1 ? BAND_RATIOS.length : i;
   };
+  const topBand = runs.filter(sizeSeparated).reduce((top, r) => Math.min(top, bandOf(r.fontSize)), BAND_RATIOS.length);
 
   return {
     bodySize,
     isHeading: (r) => sizeSeparated(r) || boldSeparated(r),
-    levelOf: (r) => (sizeSeparated(r) ? bandOf(r) : 6),
+    levelOf: (r) => (sizeSeparated(r) ? Math.min(1 + bandOf(r.fontSize) - topBand, 5) : 6),
     confidenceOf: (r) => (sizeSeparated(r) ? 0.8 : 0.5),
   };
 }
