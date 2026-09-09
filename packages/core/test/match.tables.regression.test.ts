@@ -76,4 +76,22 @@ describe('table identity comes from content, not reading order', () => {
     const cellMoves = r.events.filter((e) => e.type === 'element-moved' && 'role' in e && e.role === 'cell');
     expect(cellMoves.every((e) => 'textPreview' in e && ['Description', 'Amount', 'Early payment', '(50.00)', 'Goodwill', '(25.00)'].includes(e.textPreview as string))).toBe(true);
   });
+
+  it('inserting a row into the first table does not shift the rows of the second', () => {
+    // Rows used to key on their role alone, so every row in the document was
+    // one bucket paired by rank: a row inserted in the first table shifted the
+    // pairing of every row after it and the last row of the LAST table came out
+    // "added" (the statement's activity table, in the experiment).
+    const CHARGES = [['Description', 'Amount'], ['Consulting', '1,200.00'], ['Travel', '340.00']];
+    const grown = [['Description', 'Amount'], ['Consulting', '1,200.00'], ['Software', '99.00'], ['Travel', '340.00']];
+    const base = snapshot([...table('a', 0, { x: 57, y: 100, width: 300, height: 45 }, CHARGES), ...table('b', 30, { x: 57, y: 200, width: 300, height: 45 }, SUMMARY)]);
+    const next = snapshot([...table('a', 0, { x: 57, y: 100, width: 300, height: 60 }, grown), ...table('b', 30, { x: 57, y: 215, width: 300, height: 45 }, SUMMARY)]);
+    const r = diffSnapshots(base, next);
+    const added = r.events.filter((e) => e.type === 'element-added');
+    // One row and its two cells were added to the charges table; nothing was added to the summary table.
+    expect(added.map((e) => ('role' in e ? e.role : '')).sort()).toEqual(['cell', 'cell', 'row']);
+    const summaryRowsAdded = added.filter((e) => 'nodeId' in e && (e as { nodeId: string }).nodeId.startsWith('0:row:b'));
+    expect(summaryRowsAdded).toEqual([]);
+    expect(r.stats.removed).toBe(0);
+  });
 });
