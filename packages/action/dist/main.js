@@ -48,6 +48,7 @@ async function runServiceMode() {
         serviceUrl: core.getInput('service-url'),
         serviceToken: core.getInput('service-token'),
         conformance: core.getInput('conformance'),
+        layout: core.getInput('layout'),
         dpi: core.getInput('dpi'),
         images: core.getInput('images'),
         failOn: core.getInput('fail-on'),

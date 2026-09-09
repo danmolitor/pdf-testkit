@@ -22,6 +22,8 @@ export function buildUploadArgs(inputs) {
     const reports = (inputs.conformance ?? '').split(/\r?\n|,/).map((s) => s.trim()).filter(Boolean);
     if (reports.length > 0)
         args.push('--conformance', ...reports);
+    if (inputs.layout === 'false')
+        args.push('--no-layout');
     return args;
 }
 /** PROTOCOL.md §9, worded for a job log. */
