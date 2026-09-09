@@ -32,9 +32,13 @@ export function matchNodes(baseNodes: StructuralNode[], nextNodes: StructuralNod
   const baseLeft = new Set(baseNodes);
   const nextLeft = new Set(nextNodes);
   const pairs: NodePair[] = [];
+  const baseKey = structuralKeys(baseNodes);
+  const nextKey = structuralKeys(nextNodes);
+  const exactKey = (n: StructuralNode): string => baseKey.get(n) ?? nextKey.get(n) ?? `${n.role}|${n.normText ?? ''}|${n.headingLevel ?? ''}`;
 
-  // Stage 1 — exact stable key (role + normText + headingLevel). Within a
-  // key, two passes:
+  // Stage 1 — exact stable key: role + normText + headingLevel for text, and
+  // for anonymous structure (containers, rows) the shape of what it holds
+  // (see `structuralKeys`). Within a key, two passes:
   //
   //   1a. Same-slot first: a base pairs with the candidate at the same page
   //       and (near-)identical box. When one sibling LEAVES the bucket — a
@@ -52,15 +56,23 @@ export function matchNodes(baseNodes: StructuralNode[], nextNodes: StructuralNod
     const nextBucket = nextByKey.get(key);
     if (!nextBucket || nextBucket.length === 0) continue;
 
-    // Pass 1a — same page, same slot.
+    // Pass 1a — same page, same slot. Ties on centre distance are broken by
+    // size, never by bucket position: a wrapper, the row inside it and the
+    // cell inside that can all share one centre (the Northmoor footer), and
+    // `d <= bestD` used to hand the wrapper to the cell. (Extraction-fidelity
+    // experiment, 2026-09-09, finding F1.)
     for (const base of [...baseBucket]) {
       let best: StructuralNode | null = null;
       let bestD = POSITION_MATCH_TOL;
+      let bestSize = Infinity;
       for (const cand of nextBucket) {
         if (cand.pageIndex !== base.pageIndex) continue;
         const d = centerDistance(base.bbox, cand.bbox);
-        if (d <= bestD) {
+        if (d > bestD) continue;
+        const size = Math.abs(cand.bbox.width - base.bbox.width) + Math.abs(cand.bbox.height - base.bbox.height);
+        if (d < bestD || size < bestSize) {
           bestD = d;
+          bestSize = size;
           best = cand;
         }
       }
@@ -151,8 +163,35 @@ export function matchNodes(baseNodes: StructuralNode[], nextNodes: StructuralNod
   return { pairs, added: [...nextLeft], removed: [...baseLeft] };
 }
 
-function exactKey(n: StructuralNode): string {
-  return `${n.role}|${n.normText ?? ''}|${n.headingLevel ?? ''}`;
+/**
+ * Stage-1 keys. Everything with text keys on what it says. A container keys
+ * on what it holds, so a wrapper (one container inside) and the cell inside
+ * it (one text inside) are never one bucket even when their boxes coincide.
+ * Descendant text is included two levels down: it is the identity a reader
+ * would give the box ("the page-number cell"). Rows and tables keep the
+ * role-only key: a row's identity is its slot in its table, and a table's is
+ * handled by its own stage.
+ */
+function structuralKeys(nodes: StructuralNode[]): Map<StructuralNode, string> {
+  const children = new Map<string, StructuralNode[]>();
+  for (const n of nodes) {
+    if (n.parentId == null) continue;
+    const list = children.get(n.parentId);
+    if (list) list.push(n);
+    else children.set(n.parentId, [n]);
+  }
+  const keys = new Map<StructuralNode, string>();
+  const describe = (n: StructuralNode, depth: number): string => {
+    if (n.role === 'text' || n.role === 'heading' || n.role === 'cell') return `${n.role}:${n.normText ?? ''}`;
+    const kids = children.get(n.id) ?? [];
+    if (depth === 0) return `${n.role}(${kids.length})`;
+    return `${n.role}[${kids.map((k) => describe(k, depth - 1)).join(',')}]`;
+  };
+  for (const n of nodes) {
+    if (n.role === 'container') keys.set(n, `container|${describe(n, 2)}`);
+    else keys.set(n, `${n.role}|${n.normText ?? ''}|${n.headingLevel ?? ''}`);
+  }
+  return keys;
 }
 
 function isTexty(n: StructuralNode): boolean {
