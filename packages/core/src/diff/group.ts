@@ -28,6 +28,7 @@ import { matchNodes } from './match.js';
 export type GroupKind =
   | 'single'
   | 'table-resized'
+  | 'block-moved'
   | 'page-shift-cascade'
   | 'on-page-shift-cascade'
   | 'new-page-furniture'
@@ -318,6 +319,56 @@ export function groupEvents(
     const { summary, label } = tableSummary(key, tables, g.members, events);
     g.summary = summary;
     g.label = label;
+  }
+
+  // ── Rule 1b — block move ───────────────────────────────────────────────────
+  // A container moved and everything inside it moved by the same delta: a
+  // section swapped with its neighbour, a block cut and pasted lower down.
+  // Without this the reviewer got one "container moved 92pt" line per wrapper
+  // and one per paragraph, and the headline named a wrapper. The group is
+  // rooted at the block's first heading (or text) so the summary names what
+  // a reader would call the block; the wrappers ride along as members.
+  // Largest block first, so a section claims its clauses' wrappers too.
+  // (Extraction-fidelity experiment, 2026-09-09, finding F4.)
+  {
+    const movedIdxByNextId = new Map<string, number>();
+    events.forEach((e, i) => {
+      if (claim[i] === -1 && e.type === 'element-moved') movedIdxByNextId.set(e.nodeId, i);
+    });
+    const containers = [...movedIdxByNextId.entries()]
+      .map(([id, i]) => ({ node: nextById.get(id), i }))
+      .filter((c): c is { node: StructuralNode; i: number } => c.node?.role === 'container')
+      .map((c) => ({ ...c, subtree: collectSubtree(c.node, nextNodes) }))
+      .sort((a, b) => b.subtree.length - a.subtree.length);
+    for (const c of containers) {
+      if (claim[c.i] !== -1) continue;
+      const own = events[c.i] as Extract<SemanticEvent, { type: 'element-moved' }>;
+      const dx = own.toBBox.x - own.fromBBox.x;
+      const dy = own.toBBox.y - own.fromBBox.y;
+      const members: number[] = [];
+      for (const n of c.subtree) {
+        const idx = movedIdxByNextId.get(n.id);
+        if (idx == null || claim[idx] !== -1) continue;
+        const e = events[idx] as Extract<SemanticEvent, { type: 'element-moved' }>;
+        if (Math.abs(e.toBBox.x - e.fromBBox.x - dx) > SAME_BAND_PTS || Math.abs(e.toBBox.y - e.fromBBox.y - dy) > SAME_BAND_PTS) continue;
+        members.push(idx);
+      }
+      const named = members
+        .filter((idx) => isTexty((events[idx] as { role: NodeRole }).role))
+        .sort((a, b) => (nextRank.get((events[a] as { nodeId: string }).nodeId) ?? 0) - (nextRank.get((events[b] as { nodeId: string }).nodeId) ?? 0));
+      if (named.length === 0) continue; // A wrapper that moved alone is its own single.
+      const rootIdx = named.find((idx) => (events[idx] as { role: NodeRole }).role === 'heading') ?? named[0]!;
+      const root = events[rootIdx] as Extract<SemanticEvent, { type: 'element-moved' }>;
+      const what = root.role === 'heading' ? 'section' : 'block';
+      const others = members.length - 1;
+      const gid = open(
+        'block-moved',
+        rootIdx,
+        `${what} "${root.textPreview}" moved ${root.distancePts}pt on page ${root.pageIndex + 1}${others > 0 ? ` (${others} element${others === 1 ? '' : 's'} with it)` : ''}`,
+        `the ${what} moving`,
+      );
+      for (const idx of members) attach(gid, idx);
+    }
   }
 
   // ── Rule 2 — uniform page-shift cascade ────────────────────────────────────
@@ -849,6 +900,15 @@ function tableSummary(
 
   const before = totalRows(baseFrags);
   const after = totalRows(nextFrags);
+  // The table itself moved and nothing was added, removed or reshaped: say
+  // "moved", not "changed, 21 repositioned". The rows and cells repositioned
+  // because they went with it. (Extraction-fidelity experiment, 2026-09-09,
+  // finding F2: swapped tables must read as moved, never resized.)
+  const moved = members.map((m) => events[m]!).find((e): e is Extract<SemanticEvent, { type: 'table-moved' }> => e.type === 'table-moved');
+  if (moved && rows === 0 && cells === 0 && dims(baseFrags) === dims(nextFrags)) {
+    const where = moved.fromPage !== moved.toPage ? `from page ${moved.fromPage + 1} to page ${moved.toPage + 1}` : `${moved.distancePts}pt on page ${moved.toPage + 1}`;
+    return { summary: `table moved ${where}${repositioned > 0 ? ` (${repositioned} element${repositioned === 1 ? '' : 's'} with it)` : ''}`, label: 'the table moving' };
+  }
   const verb = after < before ? 'shrank' : after > before ? 'grew' : 'changed';
   const pages = [...new Set(nextFrags.map((f) => f.pageIndex + 1))].sort((a, b) => a - b);
   const span = pages.length > 1 ? `, now spans pages ${pages[0]}–${pages[pages.length - 1]}` : '';

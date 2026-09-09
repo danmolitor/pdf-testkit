@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { diffSnapshots } from '@pdf-testkit/core';
+import { diffSnapshots, groupEvents } from '@pdf-testkit/core';
 import { node, snapshot } from './helpers';
 import type { StructuralNode } from '@pdf-testkit/core';
 
@@ -36,6 +36,9 @@ describe('table identity comes from content, not reading order', () => {
     expect(tableEvents.map((e) => e.type).sort()).toEqual(['table-moved', 'table-moved']);
     expect(r.stats.added).toBe(0);
     expect(r.stats.removed).toBe(0);
+    // And the grouped summary says so: moved, with its rows and cells, not "changed, 21 repositioned".
+    const groups = groupEvents(base, next, r.events);
+    expect(groups.map((g) => g.summary).sort()).toEqual(['table moved 77pt on page 1 (9 elements with it)', 'table moved 79pt on page 1 (18 elements with it)']);
   });
 
   it('two tables with the same column count that swap places are told apart by their header', () => {
