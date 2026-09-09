@@ -32,17 +32,33 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
-      # The committed bundle with no install step: exactly what a consumer's
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      # The README's comment-mode recipe, step for step: install, snapshot
+      # the document to JSON with the CLI, hand the JSON to the Action. Raw
+      # .pdf inputs are not used here on purpose: the committed bundle does
+      # not carry pdfjs, so a .pdf path only works where pdfjs-dist resolves
+      # from the bundle's own location, which a consumer's checkout is not.
+      - run: npm ci
+      - run: npm run build
+      - name: Snapshot the puppeteer invoice and its demoted-heading twin
+        run: |
+          mkdir -p snapshots
+          npx pdf-testkit snapshot packages/fixtures/pdfs/puppeteer-invoice.pdf --out snapshots/puppeteer-invoice.json
+          npx pdf-testkit snapshot packages/fixtures/pdfs/puppeteer-invoice-demoted.pdf --out snapshots/puppeteer-invoice-demoted.json
+      # The committed bundle with no install of its own: what a consumer's
       # workflow runs when it references packages/action by repository path.
       # The unit tests cover the rendered Markdown; this is the only place
       # the posted comment, the outputs and the fail gate run end to end.
-      - name: Diff a demoted heading and post the comment
+      - name: Diff the snapshots and post the comment
         id: diff
         continue-on-error: true
         uses: ./packages/action
         with:
-          baseline: packages/fixtures/pdfs/puppeteer-invoice.pdf
-          current: packages/fixtures/pdfs/puppeteer-invoice-demoted.pdf
+          baseline: snapshots/puppeteer-invoice.json
+          current: snapshots/puppeteer-invoice-demoted.json
           # Inferred structure caps heading-hierarchy-changed at warn, and
           # that one event is the whole diff for this pair.
           fail-on: warn
@@ -66,7 +82,7 @@ jobs:
           body=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --jq '.[] | select(.body | contains("<!-- pdf-testkit -->")) | .body')
           n=$(printf '%s\n' "$body" | grep -c '<!-- pdf-testkit -->' || true)
           [ "$n" = 1 ] || { echo "::error::expected exactly one pdf-testkit comment on #$PR (the marker makes re-runs update it), found $n"; exit 1; }
-          for needle in 'heading-hierarchy-changed' 'puppeteer-invoice-demoted.pdf' '1 warning'; do
+          for needle in 'heading-hierarchy-changed' 'puppeteer-invoice-demoted.json' '1 warning'; do
             printf '%s\n' "$body" | grep -qF "$needle" || { echo "::error::comment does not contain '$needle'"; printf '%s\n' "$body"; exit 1; }
           done
           echo "comment verified on #$PR"
