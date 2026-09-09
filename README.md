@@ -92,6 +92,26 @@ const { layout } = await renderPdfWithLayout(docJson);
 await expect(layout).toMatchPDFSnapshot(); // authoritative, no heuristics
 ```
 
+The same path reaches the CLI through a **layout sidecar**: write the layout beside the PDF as
+`<file>.pdf.layout.json` and `pdf-testkit upload` takes structure from it instead of inferring it
+from the PDF.
+
+```ts
+const { pdf, layout } = await renderPdfWithLayout(docJson);
+writeFileSync('dist/invoice.pdf', pdf);
+writeFileSync('dist/invoice.pdf.layout.json', JSON.stringify({
+  format: 'forme-layout/1',
+  pdf_sha256: createHash('sha256').update(pdf).digest('hex'),
+  producer: { name: '@formepdf/core', version: '0.21.0' },
+  layout,
+}));
+```
+
+The sidecar is used only when its `pdf_sha256` matches the PDF beside it; a stale or malformed one
+is refused with a note and the PDF is read with pdfjs as usual. `--no-layout` forces the pdfjs
+path for a comparison run. Why it matters: on the pdfjs path headings are inferred from font sizes
+and tables from text geometry; from the layout they are what the renderer knew, at confidence 1.
+
 ### CLI
 
 ```bash
@@ -241,7 +261,8 @@ including validators we use ourselves, goes through the documented JSON.
 `upload` exit codes: **0** reported (or service unavailable without `--require-service`) ·
 **1** `--fail-on` gate hit · **2** configuration error (revoked token, wrong repository, unreadable
 document — a 4xx is never treated as "unavailable") · **3** unavailable with `--require-service`.
-Flags: `--dpi 150`, `--no-images` (structure only), `--fail-on error|warn|any`, `--require-service`.
+Flags: `--dpi 150`, `--no-images` (structure only), `--fail-on error|warn|any`, `--require-service`,
+`--no-layout` (ignore Forme layout sidecars; see the fast path above).
 The wire format is documented in `packages/protocol/PROTOCOL.md`.
 
 ## How it works

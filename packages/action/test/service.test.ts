@@ -39,3 +39,13 @@ describe('conformance reports', () => {
     expect(args.slice(args.indexOf('--conformance'))).toEqual(['--conformance', 'reports/ua1.xml', 'reports/*.json']);
   });
 });
+
+describe('the Forme layout sidecar', () => {
+  const base = { documents: 'dist/a.pdf', serviceUrl: 'https://s', serviceToken: 't', dpi: '', images: '', failOn: '', requireService: '' };
+  it('is used by default: no flag', () => {
+    expect(buildUploadArgs({ ...base })).not.toContain('--no-layout');
+  });
+  it('layout: false passes --no-layout', () => {
+    expect(buildUploadArgs({ ...base, layout: 'false' })).toContain('--no-layout');
+  });
+});

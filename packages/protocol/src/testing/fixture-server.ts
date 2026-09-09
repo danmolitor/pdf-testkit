@@ -69,6 +69,8 @@ export interface StoredRun {
   baseline_run_id: string | null;
   baseline_commit: string | null;
   structure_hash: string;
+  /** `formepdf` when the structure came from a Forme layout, `pdfjs` when read from the PDF. */
+  producer: string;
   structure_key: string;
   structure_byte_size: number;
   image_keys: { index: number; key: string; byte_size: number }[];
@@ -313,6 +315,7 @@ export async function startFixtureServer(opts: FixtureServerOptions): Promise<Fi
       baseline_run_id: req.baseline_run_id,
       baseline_commit: current && req.kind === 'compared' ? current.commit : null,
       structure_hash: req.structure.hash,
+      producer: req.structure.producer,
       structure_key: `${prefix}/structure.json.gz`,
       structure_byte_size: req.structure.byte_size,
       image_keys: (req.images?.pages ?? []).map((p) => ({ index: p.index, key: `${prefix}/page-${p.index}.webp`, byte_size: p.byte_size })),

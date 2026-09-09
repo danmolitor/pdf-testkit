@@ -15,6 +15,8 @@ export interface ServiceInputs {
   requireService: string;
   /** Validator report files (veraPDF XML/JSON or forme-review-conformance/1), one per line. */
   conformance?: string;
+  /** `false` reads every PDF with pdfjs even when a Forme layout sidecar (`<file>.pdf.layout.json`) is beside it. */
+  layout?: string;
 }
 
 /** Map Action inputs to `pdf-testkit upload` arguments. Pure, so it is testable. */
@@ -34,6 +36,7 @@ export function buildUploadArgs(inputs: ServiceInputs): string[] {
   if (inputs.requireService === 'true') args.push('--require-service');
   const reports = (inputs.conformance ?? '').split(/\r?\n|,/).map((s) => s.trim()).filter(Boolean);
   if (reports.length > 0) args.push('--conformance', ...reports);
+  if (inputs.layout === 'false') args.push('--no-layout');
   return args;
 }
 

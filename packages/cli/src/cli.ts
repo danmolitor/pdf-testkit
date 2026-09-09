@@ -138,6 +138,7 @@ export function buildProgram(): Command {
     .option('--fail-on <level>', 'also fail THIS command when the outcome is blocked at error | warn | any (default: the service check is the gate)')
     .option('--require-service', 'fail (exit 3) instead of passing when the service is unreachable')
     .option('--conformance <path...>', 'validator report(s) to attach: veraPDF XML/JSON, or a forme-review-conformance/1 file (paths or globs)')
+    .option('--no-layout', 'read every PDF with pdfjs even when a Forme layout sidecar (<file>.pdf.layout.json) is beside it')
     .option('--repo <owner/name>', 'override the repository (auto on GitHub Actions)')
     .option('--commit <sha>', 'override the head commit')
     .option('--branch <name>', 'override the branch')
@@ -188,6 +189,7 @@ export function buildProgram(): Command {
         failOn: (failOnRaw as 'error' | 'warn' | 'any' | undefined) ?? null,
         requireService: Boolean(opts.requireService),
         conformance: (opts.conformance as string[] | undefined) ?? undefined,
+        layout: opts.layout !== false,
       });
       if (opts.json) process.stdout.write(JSON.stringify(result, null, 2) + '\n');
       process.exitCode = result.exitCode;

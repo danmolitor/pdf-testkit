@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile, readdir, access } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { gunzipSync, gzipSync } from 'node:zlib';
@@ -11,6 +11,7 @@ import {
   type ConformanceItem,
   type ConformanceResult,
   fromPdf,
+  fromFormeLayout,
   groupEvents,
   loadSnapshotFromFile,
   renderPages,
@@ -51,6 +52,14 @@ export interface UploadOptions {
   requireService: boolean;
   /** Validator report files (veraPDF XML/JSON, or forme-review-conformance/1), paths or globs relative to cwd. */
   conformance?: string[];
+  /**
+   * Read `X.pdf.layout.json` beside each PDF when present (default true). The
+   * sidecar carries the layout Forme returned with the PDF and the PDF's
+   * sha256; when it matches, structure comes from the layout at confidence 1
+   * instead of being inferred from the PDF. `false` reads every PDF with
+   * pdfjs, for a comparison run.
+   */
+  layout?: boolean;
   retryDelaysMs?: number[];
   log?: (line: string) => void;
   /** Test hook: runs just before each run-creation request. */
@@ -78,7 +87,55 @@ export interface UploadResult {
   error?: string;
 }
 
-type Loaded = { snapshot: StructuralSnapshot; pdfBytes: Uint8Array | null; extractMs: number };
+type Loaded = { snapshot: StructuralSnapshot; pdfBytes: Uint8Array | null; extractMs: number; via: 'layout' | 'pdfjs' | 'snapshot'; notes: string[] };
+
+/** The sidecar the producer writes beside a PDF: `<file>.pdf.layout.json`. */
+export const LAYOUT_SIDECAR_FORMAT = 'forme-layout/1';
+interface LayoutSidecar {
+  format: typeof LAYOUT_SIDECAR_FORMAT;
+  pdf_sha256: string;
+  producer?: { name?: string; version?: string };
+  layout: Parameters<typeof fromFormeLayout>[0];
+}
+
+/**
+ * Read the sidecar beside `absPath`, if any. Returns the snapshot it yields,
+ * or a note saying why it was not used. A sidecar is never used silently when
+ * it does not belong to the file it sits beside: a stale one (the PDF was
+ * re-rendered and the sidecar was not) is refused on its sha256.
+ */
+async function loadLayoutSidecar(absPath: string, pdfBytes: Uint8Array): Promise<{ snapshot: StructuralSnapshot; producer: string } | { note: string } | null> {
+  const sidecarPath = `${absPath}.layout.json`;
+  try {
+    await access(sidecarPath);
+  } catch {
+    return null;
+  }
+  const shown = sidecarPath.split('/').slice(-2).join('/');
+  let parsed: LayoutSidecar;
+  try {
+    parsed = JSON.parse(await readFile(sidecarPath, 'utf8')) as LayoutSidecar;
+  } catch (err) {
+    return { note: `note: layout sidecar ${shown} ignored (not valid JSON: ${(err as Error).message}); structure read from the PDF with pdfjs` };
+  }
+  if (!parsed || typeof parsed !== 'object' || parsed.format !== LAYOUT_SIDECAR_FORMAT) {
+    return { note: `note: layout sidecar ${shown} ignored (format is not ${LAYOUT_SIDECAR_FORMAT}); structure read from the PDF with pdfjs` };
+  }
+  if (typeof parsed.pdf_sha256 !== 'string' || !parsed.layout || !Array.isArray((parsed.layout as { pages?: unknown }).pages)) {
+    return { note: `note: layout sidecar ${shown} ignored (missing pdf_sha256 or layout.pages); structure read from the PDF with pdfjs` };
+  }
+  const actual = createHash('sha256').update(pdfBytes).digest('hex');
+  if (actual !== parsed.pdf_sha256.toLowerCase()) {
+    return { note: `note: layout sidecar ${shown} does not match the PDF (sha256 differs; re-rendered without its sidecar?); structure read from the PDF with pdfjs` };
+  }
+  try {
+    const snapshot = fromFormeLayout(parsed.layout, { source: { name: absPath } });
+    const producer = parsed.producer?.name ? `${parsed.producer.name}${parsed.producer.version ? ` ${parsed.producer.version}` : ''}` : 'Forme';
+    return { snapshot, producer };
+  } catch (err) {
+    return { note: `note: layout sidecar ${shown} ignored (${(err as Error).message}); structure read from the PDF with pdfjs` };
+  }
+}
 
 /** Repository-relative, forward slashes, no leading `./`. */
 export function normalizeDocumentPath(p: string, cwd: string): string {
@@ -91,15 +148,23 @@ export function normalizeDocumentPath(p: string, cwd: string): string {
   return rel;
 }
 
-async function loadDocument(absPath: string): Promise<Loaded> {
+async function loadDocument(absPath: string, useLayout: boolean): Promise<Loaded> {
   const t0 = performance.now();
   if (absPath.toLowerCase().endsWith('.pdf')) {
     const bytes = new Uint8Array(await readFile(absPath));
+    const notes: string[] = [];
+    if (useLayout) {
+      const side = await loadLayoutSidecar(absPath, bytes);
+      if (side && 'snapshot' in side) {
+        return { snapshot: side.snapshot, pdfBytes: bytes, extractMs: Math.round(performance.now() - t0), via: 'layout', notes: [`    structure from Forme layout (${side.producer})`] };
+      }
+      if (side) notes.push(side.note);
+    }
     const snapshot = await fromPdf(bytes, { source: { name: absPath } });
-    return { snapshot, pdfBytes: bytes, extractMs: Math.round(performance.now() - t0) };
+    return { snapshot, pdfBytes: bytes, extractMs: Math.round(performance.now() - t0), via: 'pdfjs', notes };
   }
   const snapshot = await loadSnapshotFromFile(absPath);
-  return { snapshot, pdfBytes: null, extractMs: Math.round(performance.now() - t0) };
+  return { snapshot, pdfBytes: null, extractMs: Math.round(performance.now() - t0), via: 'snapshot', notes: [] };
 }
 
 function parseBaselineBlob(bytes: Uint8Array): StructuralSnapshot {
@@ -256,7 +321,8 @@ async function uploadOne(
   o: UploadOptions & { gate: FailOn; wantImages: boolean; log: (l: string) => void; conformanceResults: ConformanceResult[] | null },
 ): Promise<UploadedDocument> {
   const conformance = o.conformanceResults ? { conformance: o.conformanceResults } : {};
-  const loaded = await loadDocument(absPath);
+  const loaded = await loadDocument(absPath, o.layout !== false);
+  for (const n of loaded.notes) o.log(n);
   const { snapshot } = loaded;
 
   let rendered: RenderedPages | null = null;

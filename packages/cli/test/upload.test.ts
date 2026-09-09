@@ -239,3 +239,62 @@ describe('upload — conformance results from the customer\'s validator', () => 
     expect(([...server.runs.values()][0]!.conformance[0] as { profile: string }).profile).toBe('WTPDF 1.0');
   });
 });
+
+/**
+ * The LayoutInfo path reaches the CLI through a sidecar: `X.pdf.layout.json`
+ * beside `X.pdf`, carrying the layout Forme returned with the PDF and the
+ * PDF's sha256. Found and matching, the structure comes from the layout
+ * (producer `formepdf`, confidence 1); absent, stale or malformed, the PDF is
+ * read with pdfjs exactly as before. A sidecar is never used silently when it
+ * does not belong to the file it sits beside.
+ */
+describe('upload — a Forme layout sidecar beside the PDF', () => {
+  const withSidecar = (mutate?: (sidecar: Record<string, unknown>) => Record<string, unknown> | string) => {
+    copyFileSync(fixtures('pdfs/forme-mini.pdf'), join(cwd, 'docs/mini.pdf'));
+    const sidecar = JSON.parse(readFileSync(fixtures('pdfs/forme-mini.pdf.layout.json'), 'utf8')) as Record<string, unknown>;
+    const out = mutate ? mutate(sidecar) : sidecar;
+    writeFileSync(join(cwd, 'docs/mini.pdf.layout.json'), typeof out === 'string' ? out : JSON.stringify(out));
+  };
+  const lines: string[] = [];
+  const logged = { log: (l: string) => void lines.push(l) };
+
+  it('uses the layout when the sidecar matches the PDF', async () => {
+    withSidecar();
+    const r = await runUpload(opts(['docs/mini.pdf'], logged));
+    expect(r.exitCode).toBe(0);
+    const run = [...server.runs.values()][0]!;
+    expect(run.producer).toBe('formepdf');
+    expect(lines.some((l) => /structure from Forme layout/.test(l))).toBe(true);
+    // Page images still come from the PDF.
+    expect(run.image_keys.length).toBeGreaterThan(0);
+  });
+
+  it('falls back to pdfjs, with a note, when the sidecar does not match the PDF', async () => {
+    withSidecar((s) => ({ ...s, pdf_sha256: 'f'.repeat(64) }));
+    const r = await runUpload(opts(['docs/mini.pdf'], logged));
+    expect(r.exitCode).toBe(0);
+    expect([...server.runs.values()][0]!.producer).toBe('pdfjs');
+    expect(lines.some((l) => /note: .*layout sidecar.*does not match/.test(l))).toBe(true);
+  });
+
+  it('falls back to pdfjs, with a note, when the sidecar is malformed', async () => {
+    withSidecar(() => '{"format":"forme-layout/1","layout":{}');
+    const r = await runUpload(opts(['docs/mini.pdf'], logged));
+    expect(r.exitCode).toBe(0);
+    expect([...server.runs.values()][0]!.producer).toBe('pdfjs');
+    expect(lines.some((l) => /note: .*layout sidecar.*ignored/.test(l))).toBe(true);
+  });
+
+  it('--no-layout reads the PDF with pdfjs even when a valid sidecar exists', async () => {
+    withSidecar();
+    const r = await runUpload(opts(['docs/mini.pdf'], { ...logged, layout: false }));
+    expect(r.exitCode).toBe(0);
+    expect([...server.runs.values()][0]!.producer).toBe('pdfjs');
+  });
+
+  it('a PDF with no sidecar is read with pdfjs, as before', async () => {
+    const r = await runUpload(opts(['docs/invoice.pdf'], logged));
+    expect(r.exitCode).toBe(0);
+    expect([...server.runs.values()][0]!.producer).toBe('pdfjs');
+  });
+});

@@ -40,6 +40,9 @@ inputs:
   require-service:
     description: 'Service mode: fail the job (instead of passing) when the service is unreachable'
     required: false
+  layout:
+    description: 'Service mode: set to false to read every PDF with pdfjs even when a Forme layout sidecar (<file>.pdf.layout.json) is beside it. Default: use the sidecar when it matches the PDF.'
+    required: false
   comment:
     description: 'Post/update a PR comment with the semantic diff'
     required: false
