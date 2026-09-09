@@ -89,6 +89,41 @@ export function matchNodes(baseNodes: StructuralNode[], nextNodes: StructuralNod
     }
   }
 
+  // Pass 1c — same words at the same slot, cell on one side and text (or an
+  // inferred heading) on the other. On the pdfjs path a label sits inside an inferred table in one
+  // snapshot and outside it in the other (the table detector's membership
+  // shifted), so its role flips. It is the same element; without this it
+  // was reported removed and added, and the rank pass below would have
+  // handed its by-text partner to a different element with the same words.
+  // Runs before 1b so a slot beats a rank. Text↔heading is deliberately not
+  // here: a text becoming a heading is a change worth reporting, and it is
+  // reported as remove + add. (Extraction-fidelity experiment, 2026-09-09,
+  // finding P5.)
+  for (const base of [...baseLeft]) {
+    if (!hasText(base)) continue;
+    let best: StructuralNode | null = null;
+    let bestD = POSITION_MATCH_TOL;
+    for (const cand of nextLeft) {
+      if (!hasText(cand) || !cellAndText(base, cand) || cand.pageIndex !== base.pageIndex || cand.normText !== base.normText) continue;
+      const d = centerDistance(base.bbox, cand.bbox);
+      if (d < bestD) {
+        bestD = d;
+        best = cand;
+      }
+    }
+    if (best) {
+      pairs.push({ base, next: best });
+      baseLeft.delete(base);
+      nextLeft.delete(best);
+      for (const [baseBucket, nextBucket] of buckets) {
+        const bi = baseBucket.indexOf(base);
+        if (bi >= 0) baseBucket.splice(bi, 1);
+        const ni = nextBucket.indexOf(best);
+        if (ni >= 0) nextBucket.splice(ni, 1);
+      }
+    }
+  }
+
   // Pass 1b — remaining siblings by (pageIndex, order) rank.
   for (const [baseBucket, nextBucket] of buckets) {
     for (const base of baseBucket) {
@@ -227,6 +262,14 @@ function isTexty(n: StructuralNode): boolean {
   return n.role === 'text' || n.role === 'heading';
 }
 
+function hasText(n: StructuralNode): boolean {
+  return (n.role === 'text' || n.role === 'heading' || n.role === 'cell') && n.normText != null && n.normText !== '';
+}
+
+/** One side is a cell, the other is not: the inferred-table membership flip. Text↔heading is excluded on purpose. */
+function cellAndText(a: StructuralNode, b: StructuralNode): boolean {
+  return a.role !== b.role && (a.role === 'cell' || b.role === 'cell');
+}
 
 function byReadingOrder(a: StructuralNode, b: StructuralNode): number {
   return a.pageIndex - b.pageIndex || a.order - b.order;
