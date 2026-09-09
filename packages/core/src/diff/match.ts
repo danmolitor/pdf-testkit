@@ -85,9 +85,20 @@ export function matchNodes(baseNodes: StructuralNode[], nextNodes: StructuralNod
     const token = n.parentId ? tablePairToken.get(`${side}:${n.parentId}`) : undefined;
     return token ? `row|${token}` : `row|${side}:${n.parentId ?? '-'}`;
   };
+  // A cell keys on its text WITHIN its matched table: two tables that both
+  // carry "4,647.07" must not trade cells when they swap places. A cell whose
+  // table did not pair (a continuation fragment of a table that spilled onto
+  // a new page) keeps the plain text key, so it can still pair with the cell
+  // it was before the reflow.
+  const byId = new Map([...baseNodes, ...nextNodes].map((n) => [n.id, n] as const));
+  const cellKey = (n: StructuralNode, side: 'base' | 'next', plain: string): string => {
+    const row = n.parentId ? byId.get(n.parentId) : undefined;
+    const token = row?.parentId ? tablePairToken.get(`${side}:${row.parentId}`) : undefined;
+    return token ? `cell|${token}|${n.normText ?? ''}` : plain;
+  };
   const stageKey = new Map<StructuralNode, string>();
-  for (const n of baseNodes) stageKey.set(n, n.role === 'row' ? rowKey(n, 'base') : baseKeys.get(n) ?? '');
-  for (const n of nextNodes) stageKey.set(n, n.role === 'row' ? rowKey(n, 'next') : nextKeys.get(n) ?? '');
+  for (const n of baseNodes) stageKey.set(n, n.role === 'row' ? rowKey(n, 'base') : n.role === 'cell' ? cellKey(n, 'base', baseKeys.get(n) ?? '') : baseKeys.get(n) ?? '');
+  for (const n of nextNodes) stageKey.set(n, n.role === 'row' ? rowKey(n, 'next') : n.role === 'cell' ? cellKey(n, 'next', nextKeys.get(n) ?? '') : nextKeys.get(n) ?? '');
   stageOne(pool, [...baseLeft], [...nextLeft], (n) => stageKey.get(n) ?? '', { crossRole: true });
 
   // ── Stage 2 — fuzzy text for text/heading nodes (a changed number, a typo fix).

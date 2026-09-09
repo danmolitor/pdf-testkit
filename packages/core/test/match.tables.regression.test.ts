@@ -94,4 +94,16 @@ describe('table identity comes from content, not reading order', () => {
     expect(summaryRowsAdded).toEqual([]);
     expect(r.stats.removed).toBe(0);
   });
+
+  it('cells with the same text in two tables do not trade places when the tables swap', () => {
+    // "4,647.07", "4,046.59" and "(600.48)" appear in both the applied-to table
+    // and the summary. Keyed on text alone, the rank pass paired them across
+    // tables and reported cells moving 173pt when their tables moved 79pt.
+    const base = snapshot([...table('a', 0, { x: 57, y: 278, width: 498, height: 54 }, APPLIED), ...table('b', 30, { x: 300, y: 347, width: 255, height: 64 }, SUMMARY)]);
+    const next = snapshot([...table('a', 0, { x: 300, y: 270, width: 255, height: 64 }, SUMMARY), ...table('b', 30, { x: 57, y: 357, width: 498, height: 54 }, APPLIED)]);
+    const r = diffSnapshots(base, next);
+    const cellMoves = r.events.filter((e): e is Extract<typeof e, { type: 'element-moved' }> => e.type === 'element-moved' && 'role' in e && e.role === 'cell');
+    expect(cellMoves.every((e) => e.distancePts <= 79)).toBe(true);
+    expect(r.events.filter((e) => e.type === 'element-resized')).toEqual([]);
+  });
 });
