@@ -52,15 +52,18 @@ export function matchNodes(baseNodes: StructuralNode[], nextNodes: StructuralNod
   //       reported as movement rather than remove+add churn.
   const nextByKey = groupBy([...nextLeft], exactKey);
   const baseByKey = groupBy([...baseLeft], exactKey);
+  const buckets: [StructuralNode[], StructuralNode[]][] = [];
   for (const [key, baseBucket] of baseByKey) {
     const nextBucket = nextByKey.get(key);
-    if (!nextBucket || nextBucket.length === 0) continue;
+    if (nextBucket && nextBucket.length > 0) buckets.push([baseBucket, nextBucket]);
+  }
 
-    // Pass 1a — same page, same slot. Ties on centre distance are broken by
-    // size, never by bucket position: a wrapper, the row inside it and the
-    // cell inside that can all share one centre (the Northmoor footer), and
-    // `d <= bestD` used to hand the wrapper to the cell. (Extraction-fidelity
-    // experiment, 2026-09-09, finding F1.)
+  // Pass 1a — same page, same slot. Ties on centre distance are broken by
+  // size, never by bucket position: a wrapper, the row inside it and the
+  // cell inside that can all share one centre (the Northmoor footer), and
+  // `d <= bestD` used to hand the wrapper to the cell. (Extraction-fidelity
+  // experiment, 2026-09-09, finding F1.)
+  for (const [baseBucket, nextBucket] of buckets) {
     for (const base of [...baseBucket]) {
       let best: StructuralNode | null = null;
       let bestD = POSITION_MATCH_TOL;
@@ -84,8 +87,10 @@ export function matchNodes(baseNodes: StructuralNode[], nextNodes: StructuralNod
         nextBucket.splice(nextBucket.indexOf(best), 1);
       }
     }
+  }
 
-    // Pass 1b — remaining siblings by (pageIndex, order) rank.
+  // Pass 1b — remaining siblings by (pageIndex, order) rank.
+  for (const [baseBucket, nextBucket] of buckets) {
     for (const base of baseBucket) {
       const next = nextBucket.shift();
       if (!next) break;
@@ -138,16 +143,20 @@ export function matchNodes(baseNodes: StructuralNode[], nextNodes: StructuralNod
     }
   }
 
-  // Stage 3 — structural pairing for tables (and other non-text containers) by
-  // role + table signature, nearest in page order.
+  // Stage 3 — structural pairing for tables (and other non-text containers)
+  // nearest in page order. A table whose header changed (so stage 1 missed
+  // it) still pairs; shape is a cost, not a gate, since a table that gained
+  // a column or fifteen rows is the same table. (Before content signatures,
+  // every table shared one stage-1 key and paired by rank regardless of
+  // shape; this is no looser than that.)
   for (const base of [...baseLeft]) {
     if (isTexty(base)) continue;
     let best: StructuralNode | null = null;
     let bestCost = Infinity;
     for (const cand of nextLeft) {
       if (cand.role !== base.role) continue;
-      if (!sameTableShape(base, cand)) continue;
-      const cost = Math.abs(cand.pageIndex - base.pageIndex) * 1000 + Math.abs(cand.order - base.order);
+      const colsApart = base.table && cand.table ? Math.abs(base.table.cols - cand.table.cols) : 0;
+      const cost = Math.abs(cand.pageIndex - base.pageIndex) * 1000 + Math.abs(cand.order - base.order) + colsApart * 50;
       if (cost < bestCost) {
         bestCost = cost;
         best = cand;
@@ -189,19 +198,35 @@ function structuralKeys(nodes: StructuralNode[]): Map<StructuralNode, string> {
   };
   for (const n of nodes) {
     if (n.role === 'container') keys.set(n, `container|${describe(n, 2)}`);
+    else if (n.role === 'table') keys.set(n, `table|${tableSignature(n, children)}`);
     else keys.set(n, `${n.role}|${n.normText ?? ''}|${n.headingLevel ?? ''}`);
   }
   return keys;
+}
+
+/**
+ * A table's identity is its content, not its place in reading order: the
+ * column count and the text of its first row (the header, on every path).
+ * Two tables that swap places keep their signatures and pair with themselves;
+ * a table that grows rows keeps its header and pairs with itself; two tables
+ * with the same shape but different headers are never one bucket. Rows
+ * without a header text (a headerless grid) fall back to column count alone.
+ * (Extraction-fidelity experiment, 2026-09-09, findings F2 and F3.)
+ */
+function tableSignature(table: StructuralNode, children: Map<string, StructuralNode[]>): string {
+  const rows = (children.get(table.id) ?? []).filter((r) => r.role === 'row').sort((a, b) => a.order - b.order);
+  const header = rows[0] ? (children.get(rows[0].id) ?? []).filter((c) => c.role === 'cell').sort((a, b) => a.order - b.order).map((c) => c.normText ?? '').filter(Boolean).join('\u0001') : '';
+  // The header alone: a table that gained a column keeps its header text
+  // apart from the new cell, and the stage-3 fallback (nearest in reading
+  // order, any shape) picks that up. Column count is the identity only for
+  // a headerless grid.
+  return header ? `h:${header}` : `cols:${table.table?.cols ?? ''}`;
 }
 
 function isTexty(n: StructuralNode): boolean {
   return n.role === 'text' || n.role === 'heading';
 }
 
-function sameTableShape(a: StructuralNode, b: StructuralNode): boolean {
-  if (!a.table || !b.table) return true; // non-tables: shape is irrelevant
-  return a.table.rows === b.table.rows && a.table.cols === b.table.cols;
-}
 
 function byReadingOrder(a: StructuralNode, b: StructuralNode): number {
   return a.pageIndex - b.pageIndex || a.order - b.order;
