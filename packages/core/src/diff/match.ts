@@ -42,6 +42,7 @@ export function matchNodes(baseNodes: StructuralNode[], nextNodes: StructuralNod
   const nextKeys = structuralKeys(nextNodes);
   const structuralKey = (n: StructuralNode): string => baseKeys.get(n) ?? nextKeys.get(n) ?? '';
   const tablePairToken = new Map<string, string>(); // `${side}:${tableId}` -> token shared by the pair
+  const tableDelta = new Map<string, { dx: number; dy: number } | null>(); // token -> how far the table moved on its page
   {
     const bT = baseNodes.filter((n) => n.role === 'table');
     const nT = nextNodes.filter((n) => n.role === 'table');
@@ -68,8 +69,10 @@ export function matchNodes(baseNodes: StructuralNode[], nextNodes: StructuralNod
       if (best) take(pool, base, best);
     }
     for (let i = before; i < pairs.length; i++) {
-      tablePairToken.set(`base:${pairs[i]!.base.id}`, `t${i}`);
-      tablePairToken.set(`next:${pairs[i]!.next.id}`, `t${i}`);
+      const { base, next } = pairs[i]!;
+      tablePairToken.set(`base:${base.id}`, `t${i}`);
+      tablePairToken.set(`next:${next.id}`, `t${i}`);
+      tableDelta.set(`t${i}`, base.pageIndex === next.pageIndex ? { dx: next.bbox.x - base.bbox.x, dy: next.bbox.y - base.bbox.y } : null);
     }
   }
 
@@ -81,9 +84,26 @@ export function matchNodes(baseNodes: StructuralNode[], nextNodes: StructuralNod
   // pairing of every row after it, and the last row of the last table came out
   // "added". A row whose table did not pair keeps a side-specific key and
   // stays unpaired here.
+  // A row keys on its table and on what its cells say, so an inserted row
+  // never takes the slot of the row it pushed down: rows are anonymous, and
+  // judged by slot alone the old row paired with the new one that landed
+  // where it had been. A row whose cells changed (a value edit) has no exact
+  // partner and falls through to the anonymous stage-3 pairing.
+  const baseById = new Map(baseNodes.map((n) => [n.id, n] as const));
+  const nextById = new Map(nextNodes.map((n) => [n.id, n] as const));
+  const cellTextByRow = new Map<string, string[]>();
+  for (const n of [...baseNodes, ...nextNodes]) {
+    if (n.role !== 'cell' || !n.parentId) continue;
+    const side = baseById.get(n.parentId) === undefined ? 'next' : baseNodes.includes(n) ? 'base' : 'next';
+    const k = `${side}:${n.parentId}`;
+    const list = cellTextByRow.get(k);
+    if (list) list.push(n.normText ?? '');
+    else cellTextByRow.set(k, [n.normText ?? '']);
+  }
   const rowKey = (n: StructuralNode, side: 'base' | 'next'): string => {
     const token = n.parentId ? tablePairToken.get(`${side}:${n.parentId}`) : undefined;
-    return token ? `row|${token}` : `row|${side}:${n.parentId ?? '-'}`;
+    const cells = (cellTextByRow.get(`${side}:${n.id}`) ?? []).join('');
+    return token ? `row|${token}|${cells}` : `row|${side}:${n.parentId ?? '-'}|${cells}`;
   };
   // A cell keys on its text WITHIN its matched table: two tables that both
   // carry "4,647.07" must not trade cells when they swap places. A cell whose
@@ -93,8 +113,6 @@ export function matchNodes(baseNodes: StructuralNode[], nextNodes: StructuralNod
   // Ids are per snapshot (`0:row:5` names a different row on each side once
   // a row is inserted above it), so each side looks its parents up on its own
   // side only.
-  const baseById = new Map(baseNodes.map((n) => [n.id, n] as const));
-  const nextById = new Map(nextNodes.map((n) => [n.id, n] as const));
   const cellKey = (n: StructuralNode, side: 'base' | 'next', plain: string): string => {
     const row = n.parentId ? (side === 'base' ? baseById : nextById).get(n.parentId) : undefined;
     const token = row?.parentId ? tablePairToken.get(`${side}:${row.parentId}`) : undefined;
@@ -103,7 +121,15 @@ export function matchNodes(baseNodes: StructuralNode[], nextNodes: StructuralNod
   const stageKey = new Map<StructuralNode, string>();
   for (const n of baseNodes) stageKey.set(n, n.role === 'row' ? rowKey(n, 'base') : n.role === 'cell' ? cellKey(n, 'base', baseKeys.get(n) ?? '') : baseKeys.get(n) ?? '');
   for (const n of nextNodes) stageKey.set(n, n.role === 'row' ? rowKey(n, 'next') : n.role === 'cell' ? cellKey(n, 'next', nextKeys.get(n) ?? '') : nextKeys.get(n) ?? '');
-  stageOne(pool, [...baseLeft], [...nextLeft], (n) => stageKey.get(n) ?? '', { crossRole: true });
+  // A row or cell of a table that moved is at the same slot RELATIVE TO ITS
+  // TABLE. Judged on the page, a table pushed down by one row height put every
+  // row at its neighbour's old slot, and the same-slot pass paired each row
+  // with the one below it.
+  const shiftOf = (n: StructuralNode): { dx: number; dy: number } | null => {
+    const token = stageKey.get(n)?.match(/^(?:row|cell)\|(t\d+)/)?.[1];
+    return token ? tableDelta.get(token) ?? null : null;
+  };
+  stageOne(pool, [...baseLeft], [...nextLeft], (n) => stageKey.get(n) ?? '', { crossRole: true, shiftOf });
 
   // ── Stage 2 — fuzzy text for text/heading nodes (a changed number, a typo fix).
   for (const base of [...baseLeft]) {
@@ -142,13 +168,24 @@ export function matchNodes(baseNodes: StructuralNode[], nextNodes: StructuralNod
 
   // ── Stage 3 — structural pairing for the remaining anonymous nodes (rows,
   // containers) by role, nearest in page order. Tables were settled in phase T.
+  // A row whose cells changed (a value edit) pairs only within its own matched
+  // table, nearest to the slot its table's move predicts: judged document-wide
+  // by reading order it paired with a row of a removed fragment three tables
+  // away and came out as spurious repositioning.
+  const tokenOf = (n: StructuralNode, side: 'base' | 'next'): string | undefined => (n.parentId ? tablePairToken.get(`${side}:${n.parentId}`) : undefined);
   for (const base of [...baseLeft]) {
     if (isTexty(base) || base.role === 'table') continue;
+    const baseToken = base.role === 'row' ? tokenOf(base, 'base') : undefined;
+    const shift = baseToken ? tableDelta.get(baseToken) : undefined;
+    const slot = shift ? { ...base.bbox, x: base.bbox.x + shift.dx, y: base.bbox.y + shift.dy } : base.bbox;
     let best: StructuralNode | null = null;
     let bestCost = Infinity;
     for (const cand of nextLeft) {
       if (cand.role !== base.role) continue;
-      const cost = Math.abs(cand.pageIndex - base.pageIndex) * 1000 + Math.abs(cand.order - base.order);
+      if (base.role === 'row' && tokenOf(cand, 'next') !== baseToken) continue;
+      const cost = baseToken
+        ? Math.abs(cand.pageIndex - base.pageIndex) * 1000 + centerDistance(slot, cand.bbox)
+        : Math.abs(cand.pageIndex - base.pageIndex) * 1000 + Math.abs(cand.order - base.order);
       if (cost < bestCost) {
         bestCost = cost;
         best = cand;
@@ -203,7 +240,7 @@ function stageOne(
   baseCands: StructuralNode[],
   nextCands: StructuralNode[],
   key: (n: StructuralNode) => string,
-  opts: { crossRole: boolean },
+  opts: { crossRole: boolean; shiftOf?: (base: StructuralNode) => { dx: number; dy: number } | null },
 ): void {
   const nextByKey = groupBy(nextCands.filter((n) => pool.nextLeft.has(n)), key);
   const baseByKey = groupBy(baseCands.filter((n) => pool.baseLeft.has(n)), key);
@@ -219,9 +256,11 @@ function stageOne(
       let best: StructuralNode | null = null;
       let bestD = POSITION_MATCH_TOL;
       let bestSize = Infinity;
+      const shift = opts.shiftOf?.(base);
+      const slot = shift ? { ...base.bbox, x: base.bbox.x + shift.dx, y: base.bbox.y + shift.dy } : base.bbox;
       for (const cand of nextBucket) {
         if (cand.pageIndex !== base.pageIndex) continue;
-        const d = centerDistance(base.bbox, cand.bbox);
+        const d = centerDistance(slot, cand.bbox);
         if (d > bestD) continue;
         const size = Math.abs(cand.bbox.width - base.bbox.width) + Math.abs(cand.bbox.height - base.bbox.height);
         if (d < bestD || size < bestSize) {
