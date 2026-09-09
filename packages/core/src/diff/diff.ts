@@ -188,9 +188,14 @@ export function diffSnapshots(
     }
 
     if (base.role === 'heading' && after.role === 'heading' && base.headingLevel !== after.headingLevel) {
+      // A heading level the extractor INFERRED (confidence < 1: the pdfjs
+      // path) is a heuristic, and a heuristic must not block a merge on its
+      // own. It is reported, at most, as a warning; the authoritative path
+      // (FormePDF, confidence 1) keeps the configured severity.
+      const configured = severityOf('heading-hierarchy-changed');
       events.push({
         type: 'heading-hierarchy-changed',
-        severity: severityOf('heading-hierarchy-changed'),
+        severity: conf < 1 && configured === 'error' ? 'warn' : configured,
         confidence: conf,
         nodeId: after.id,
         baseNodeId: base.id,
