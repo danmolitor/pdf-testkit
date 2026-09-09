@@ -90,9 +90,13 @@ export function matchNodes(baseNodes: StructuralNode[], nextNodes: StructuralNod
   // table did not pair (a continuation fragment of a table that spilled onto
   // a new page) keeps the plain text key, so it can still pair with the cell
   // it was before the reflow.
-  const byId = new Map([...baseNodes, ...nextNodes].map((n) => [n.id, n] as const));
+  // Ids are per snapshot (`0:row:5` names a different row on each side once
+  // a row is inserted above it), so each side looks its parents up on its own
+  // side only.
+  const baseById = new Map(baseNodes.map((n) => [n.id, n] as const));
+  const nextById = new Map(nextNodes.map((n) => [n.id, n] as const));
   const cellKey = (n: StructuralNode, side: 'base' | 'next', plain: string): string => {
-    const row = n.parentId ? byId.get(n.parentId) : undefined;
+    const row = n.parentId ? (side === 'base' ? baseById : nextById).get(n.parentId) : undefined;
     const token = row?.parentId ? tablePairToken.get(`${side}:${row.parentId}`) : undefined;
     return token ? `cell|${token}|${n.normText ?? ''}` : plain;
   };

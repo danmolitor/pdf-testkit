@@ -109,4 +109,36 @@ describe('table identity comes from content, not reading order', () => {
     expect(cellMoves.every((e) => e.distancePts <= 79)).toBe(true);
     expect(r.events.filter((e) => e.type === 'element-resized')).toEqual([]);
   });
+
+  it('a table pushed down by a row inserted above it keeps every cell paired', () => {
+    // Real ids are per-page ordinals: inserting a row in the first table
+    // renumbers every row and cell after it, so `0:row:5` is table two's first
+    // row in the baseline and the inserted row in the new run. A cell that
+    // looked its table up across snapshots got the wrong token, and the
+    // pushed table's cells came out "added" under the wrong table.
+    const ordinal = (rows: string[][][], ys: number[]): StructuralNode[] => {
+      const out: StructuralNode[] = [];
+      let r = 0, c = 0, order = 0;
+      rows.forEach((tbl, t) => {
+        const cols = tbl[0]!.length;
+        out.push(node({ id: `0:table:${t}`, role: 'table', order: order++, bbox: { x: 57, y: ys[t]!, width: 300, height: 15 * tbl.length }, table: { rows: tbl.length, cols } }));
+        tbl.forEach((cells, i) => {
+          const rid = `0:row:${r++}`;
+          out.push(node({ id: rid, role: 'row', order: order++, parentId: `0:table:${t}`, bbox: { x: 57, y: ys[t]! + i * 15, width: 300, height: 15 } }));
+          cells.forEach((text, j) => out.push(node({ id: `0:cell:${c++}`, role: 'cell', order: order++, parentId: rid, text, bbox: { x: 57 + j * (300 / cols), y: ys[t]! + i * 15, width: 300 / cols, height: 15 } })));
+        });
+      });
+      return out;
+    };
+    const CHARGES = [['Description', 'Amount'], ['Consulting', '1,200.00'], ['Travel', '340.00']];
+    const grown = [['Description', 'Amount'], ['Consulting', '1,200.00'], ['Software', '99.00'], ['Travel', '340.00']];
+    const AGEING = [['Current', '1–30 days', 'Total'], ['4,046.59', '9,244.10', '35,731.24']];
+    const base = snapshot(ordinal([CHARGES, AGEING], [100, 200]));
+    const next = snapshot(ordinal([grown, AGEING], [100, 215]));
+    const r = diffSnapshots(base, next);
+    const added = r.events.filter((e) => e.type === 'element-added').map((e) => ('textPreview' in e ? e.textPreview : e.type));
+    expect(added.sort()).toEqual(['', '99.00', 'Software']);
+    const groups = groupEvents(base, next, r.events);
+    expect(groups.map((g) => g.summary).sort()).toEqual(['table grew +1 row, +2 cells (3×2 → 4×2)', 'table moved 15pt on page 1 (8 elements with it)']);
+  });
 });
