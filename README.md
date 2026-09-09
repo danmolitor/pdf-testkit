@@ -183,14 +183,15 @@ jobs:
       - uses: danmolitor/pdf-testkit/packages/action@v0.3.0
         with:
           baseline: baselines/invoice.json   # committed to your repo
-          current: current.json              # a raw .pdf works too (needs pdfjs-dist)
+          current: current.json              # snapshot first; the Action carries no PDF parser
           fail-on: error                      # error | warn | any
 ```
 
 Seed the baseline once — `pdf-testkit snapshot dist/invoice.pdf --out baselines/invoice.json` —
 and commit it; the Action diffs each PR's `current.json` against it. Committing `.json` snapshots
-(both baseline and current) keeps the runner free of PDF parsing; pass raw `.pdf` paths only if
-`pdfjs-dist` is installed. Pin the Action to a released tag (`@v0.1.4`), not a branch.
+(both baseline and current) keeps the runner free of PDF parsing. The Action's bundle carries no
+`pdfjs-dist`, and a `.pdf` path resolves it from the Action's own checkout, not from yours, so
+snapshot with the CLI first. Pin the Action to a released tag (`@v0.1.4`), not a branch.
 
 **3. Hosted review (pdf-testkit cloud).** Baselines stored outside the repo, a review UI with
 side-by-side page images, a GitHub check and PR comment, and a record of who approved what. The

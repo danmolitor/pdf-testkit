@@ -6,10 +6,10 @@ branding:
   color: 'blue'
 inputs:
   baseline:
-    description: 'Comment mode: path to the committed baseline (.json snapshot or .pdf)'
+    description: 'Comment mode: path to the committed baseline (.json snapshot; a .pdf only where pdfjs-dist resolves from the Action itself, so snapshot first)'
     required: false
   current:
-    description: 'Comment mode: path to the newly generated document (.json snapshot or .pdf)'
+    description: 'Comment mode: path to the newly generated document (.json snapshot; a .pdf only where pdfjs-dist resolves from the Action itself, so snapshot first)'
     required: false
   fail-on:
     description: 'Severity that fails the job: error | warn | any. Comment mode defaults to error; in service mode leave unset so the service check is the gate'
