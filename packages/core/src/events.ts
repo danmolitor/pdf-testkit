@@ -111,6 +111,9 @@ export interface HeadingHierarchyChangedEvent extends BaseEvent, PairedGeometry 
   type: 'heading-hierarchy-changed';
   nodeId: string;
   textPreview: string;
+  /** Where the heading is on each side; a consumer with only the event list needs this to find the boxes. */
+  fromPage: number;
+  toPage: number;
   fromLevel: number | null;
   toLevel: number | null;
 }

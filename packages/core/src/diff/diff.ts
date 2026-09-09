@@ -199,6 +199,8 @@ export function diffSnapshots(
         confidence: conf,
         nodeId: after.id,
         baseNodeId: base.id,
+        fromPage: base.pageIndex,
+        toPage: after.pageIndex,
         fromBBox: base.bbox,
         toBBox: after.bbox,
         textPreview: textPreview(after.text),

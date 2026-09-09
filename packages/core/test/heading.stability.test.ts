@@ -61,6 +61,11 @@ describe('an inferred heading level never blocks on its own', () => {
   it('at confidence 1 (the FormePDF path) the change is an error, as configured', () => {
     expect(demoted(1).severity).toBe('error');
   });
+  it('names the page on each side, so a viewer can find the boxes', () => {
+    // The review page hid the outline of this event because it named no page.
+    const e = demoted(1) as Extract<typeof e, { type: 'heading-hierarchy-changed' }>;
+    expect([e.fromPage, e.toPage]).toEqual([0, 0]);
+  });
   it('below confidence 1 (the pdfjs path) the same change is a warning', () => {
     expect(demoted(0.8).severity).toBe('warn');
   });
