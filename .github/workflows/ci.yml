@@ -17,3 +17,56 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
+
+  action-comment-mode:
+    name: Action comment mode (live, on this pull request)
+    runs-on: ubuntu-latest
+    # Comment mode's whole output is a pull-request comment, so a push to
+    # main has nothing to prove. A fork's pull request runs with a read-only
+    # token and could not post one; skipped rather than failed.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    # The comment needs write access to pull requests; nothing else in this
+    # workflow does, so the grant stays on this job.
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      # The committed bundle with no install step: exactly what a consumer's
+      # workflow runs when it references packages/action by repository path.
+      # The unit tests cover the rendered Markdown; this is the only place
+      # the posted comment, the outputs and the fail gate run end to end.
+      - name: Diff a demoted heading and post the comment
+        id: diff
+        continue-on-error: true
+        uses: ./packages/action
+        with:
+          baseline: packages/fixtures/pdfs/puppeteer-invoice.pdf
+          current: packages/fixtures/pdfs/puppeteer-invoice-demoted.pdf
+          # Inferred structure caps heading-hierarchy-changed at warn, and
+          # that one event is the whole diff for this pair.
+          fail-on: warn
+      - name: The action failed on the regression and reported exactly one event
+        env:
+          OUTCOME: ${{ steps.diff.outcome }}
+          CHANGED: ${{ steps.diff.outputs.changed }}
+          COUNT: ${{ steps.diff.outputs.event-count }}
+        run: |
+          set -u
+          echo "outcome=$OUTCOME changed=$CHANGED event-count=$COUNT"
+          [ "$OUTCOME" = failure ] || { echo "::error::fail-on: warn should fail the step on a demoted heading; outcome was $OUTCOME"; exit 1; }
+          [ "$CHANGED" = true ] || { echo "::error::expected output changed=true, got '$CHANGED'"; exit 1; }
+          [ "$COUNT" = 1 ] || { echo "::error::expected exactly one event (the demoted heading), got '$COUNT'"; exit 1; }
+      - name: The comment is on this pull request, once, and names the event
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -u
+          body=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --jq '.[] | select(.body | contains("<!-- pdf-testkit -->")) | .body')
+          n=$(printf '%s\n' "$body" | grep -c '<!-- pdf-testkit -->' || true)
+          [ "$n" = 1 ] || { echo "::error::expected exactly one pdf-testkit comment on #$PR (the marker makes re-runs update it), found $n"; exit 1; }
+          for needle in 'heading-hierarchy-changed' 'puppeteer-invoice-demoted.pdf' '1 warning'; do
+            printf '%s\n' "$body" | grep -qF "$needle" || { echo "::error::comment does not contain '$needle'"; printf '%s\n' "$body"; exit 1; }
+          done
+          echo "comment verified on #$PR"
