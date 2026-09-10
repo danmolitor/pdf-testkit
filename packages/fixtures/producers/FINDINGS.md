@@ -32,13 +32,21 @@ fires. Correct by design — but it's the finding most likely to surprise someon
 testing invoices/statements, so it belongs in the READMEs and outreach as an
 explicit boundary: *pdf-testkit will not catch a wrong number.*
 
-## F2 — Headings missed on a headings-and-tables-only document (all producers)
+## F2 — Headings missed on a headings-and-tables-only document — **RESOLVED**
 The statement (H1 + two H2s, no body prose) extracted **0 headings** on every
-producer. The heading model takes the char-count-weighted modal size as the body
-baseline and calls larger text a heading; with no paragraphs, the only non-table
-text *is* the headings, so there is no smaller baseline to exceed. A real,
-cross-producer extractor limitation — not producer-specific. Minimal repro:
-`*-statement-baseline.pdf`.
+producer. The heading model took the char-count-weighted modal size as the body
+baseline and called larger text a heading; with no paragraphs the only non-table
+text *is* the headings, and the long title won the char weighting, so the modal
+"body" was the *largest* size and nothing exceeded it. A whole document class
+(statements, dashboards, data-heavy reports) was invisible to heading detection.
+
+Fixed structurally (not by heuristic tuning): when several distinct non-table
+sizes exist and the modal body size is the maximum — i.e. there is no smaller
+prose to anchor a baseline — the distinct sizes are ranked directly, largest =
+H1. Guarded so a prose-only document (one size) is never turned into a page of
+H1s. The corpus caught the fix doing its job: `statement` flipped 0 → 3 headings
+`[H1 H2 H2]` on react-pdf/PDFKit/Puppeteer in one reviewed diff. Forme lands at 4
+because its title splits into two H1 runs (see below).
 
 ## F3 — Section/colspan rows fragment one table into many (react-pdf, Puppeteer)
 The invoice's full-width "Group N" section rows break the column pattern, so the
@@ -67,6 +75,12 @@ reclaimed enough vertical space to drop a page, so the diff adds
 `heading-hierarchy-changed`. A rendering-fidelity artifact of the producer, not
 an extractor bug, but it means the "clean single event" story only holds on the
 non-Forme producers for this document.
+
+## Status
+- **F2 — RESOLVED** (heading baseline fallback; statement now 3–4 headings).
+- **F1 — on the board as the next feature** (content/value diffing; a scope
+  decision, not extractor tuning — see the "structure, not content" boundary).
+- F3–F6 remain recorded findings; the fixtures are their repros.
 
 ## What held up everywhere (the non-findings worth stating)
 - Contract heading hierarchy (H1–H3): 6/6 on all four producers.

@@ -55,10 +55,12 @@ shows the same table under-detection (F4) and invoice heading over-fire (F5) as
 the others — which is exactly why Forme ships the layout sidecar: the fast path
 sidesteps the heuristics. It anchors every other producer's fidelity number.
 
-## Findings that hold across all producers
+## Cross-producer findings
 - **A changed total fires nothing** (F1) — content edits at a stable slot are not
-  events, by design. pdf-testkit checks structure, not values.
-- **Headings on a headings-and-tables-only document are missed** (F2) — the
-  `statement` gets 0 headings everywhere: no body prose means no size baseline.
+  events, by design. pdf-testkit checks structure, not values. On the board as
+  the next feature (a scope decision, not a fix).
+- **Headings on a headings-and-tables-only document** (F2) — **fixed**: the
+  `statement` (no body prose) now detects its headings via a distinct-size-rank
+  fallback instead of extracting zero.
 
 Full detail, with the minimal repro per finding, in [FINDINGS.md](./FINDINGS.md).

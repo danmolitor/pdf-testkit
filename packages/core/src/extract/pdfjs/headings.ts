@@ -51,6 +51,26 @@ export function buildHeadingModel(runs: PdfTextRun[]): HeadingModel {
     }
   }
 
+  // No body prose — a headings-and-tables-only document (statement, dashboard,
+  // data-heavy report). The char-weighted modal "body" size is the LARGEST text
+  // present (the title is long, so it wins the weighting), so the size-vs-body
+  // test finds no heading at all and the whole document's headings vanish. When
+  // that happens and several distinct sizes exist, they are all headings: rank
+  // the distinct sizes directly, largest = H1. Guarded by distinctSizes > 1 so a
+  // prose-only document (a single size) is never turned into a page of H1s.
+  const maxSize = round1(Math.max(0, ...runs.map((r) => r.fontSize)));
+  const distinctSizes = new Set(runs.map((r) => round1(r.fontSize)));
+  if (distinctSizes.size > 1 && round1(bodySize) === maxSize) {
+    const ranked = [...distinctSizes].sort((a, b) => b - a);
+    const levelBySize = new Map(ranked.map((s, i) => [round1(s), Math.min(i + 1, 6)]));
+    return {
+      bodySize,
+      isHeading: () => true,
+      levelOf: (r) => levelBySize.get(round1(r.fontSize)) ?? 6,
+      confidenceOf: () => 0.6, // inferred without a body-size anchor — lower than size-separated
+    };
+  }
+
   const sizeSeparated = (r: PdfTextRun): boolean => r.fontSize > bodySize * HEADING_RATIO;
   const boldSeparated = (r: PdfTextRun): boolean => r.bold && r.fontSize >= bodySize * BOLD_RATIO;
   // 0 = the largest band … BAND_RATIOS.length = size-separated but below every band.

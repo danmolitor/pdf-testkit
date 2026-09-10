@@ -66,7 +66,7 @@
     "variant": "baseline",
     "renderCommand": "renderDocumentWithLayout(<Document>)",
     "file": "forme-statement-baseline.pdf",
-    "structureHash": "sha256:303515f58bf7e2756bdb7e8de32a9ab40077db9334eb0039bdedcdb95895a953",
+    "structureHash": "sha256:68f080ab6889d5c04632403a65ad85d42ab48567c95f6eade0996f91bf523f10",
     "layoutHash": "sha256:f2fbd5fd28cd315f9a10e0c22454077872d97da8bc02a323667ca9a9dea97f7e"
   },
   {
@@ -76,7 +76,7 @@
     "variant": "changed",
     "renderCommand": "renderDocumentWithLayout(<Document>)",
     "file": "forme-statement-changed.pdf",
-    "structureHash": "sha256:103a32ed38bcb4d734b82316b11a7be9953b6c7d3b3198b401bd484460c7d7e2",
+    "structureHash": "sha256:a02a73759ff7355f398f1d401ad3fc43fd4fbd98d5df0f7c6b0b611fc4d178a3",
     "layoutHash": "sha256:ad2f8a9a72790cf50fcb80cc3cd44c0213e70a9c9da482bafc330b8fcb0c6cd8"
   },
   {
@@ -140,7 +140,7 @@
     "variant": "baseline",
     "renderCommand": "new PDFDocument() + imperative text/lines",
     "file": "pdfkit-statement-baseline.pdf",
-    "structureHash": "sha256:b31bef8d4748d6e8271031a1a5f55c75de6b783f75b5476e54f3a2cfe98433ef"
+    "structureHash": "sha256:eeab4433d63c3aa3e75bd9e5709b29696d00fad6b0c0364af97860ec201029bc"
   },
   {
     "producer": "pdfkit",
@@ -149,7 +149,7 @@
     "variant": "changed",
     "renderCommand": "new PDFDocument() + imperative text/lines",
     "file": "pdfkit-statement-changed.pdf",
-    "structureHash": "sha256:3b40357844392c984c30040a5972d252e749f7a16bb99ba6736903ab5ce5244e"
+    "structureHash": "sha256:6b9d99fbda2cd1d483ff1519440709a168e4ac9c2ed6c820075bf76e791a70eb"
   },
   {
     "producer": "puppeteer",
@@ -212,7 +212,7 @@
     "variant": "baseline",
     "renderCommand": "chrome page.pdf({ format: \"A4\" })",
     "file": "puppeteer-statement-baseline.pdf",
-    "structureHash": "sha256:02db28679251e25ed298a9d46dda3c8d2b1b5d9e17f483b83cad4150e79b3bd0"
+    "structureHash": "sha256:c24014f8d0bfe931ea87307540566316834810ca58af25edd5255ab8e113f193"
   },
   {
     "producer": "puppeteer",
@@ -221,7 +221,7 @@
     "variant": "changed",
     "renderCommand": "chrome page.pdf({ format: \"A4\" })",
     "file": "puppeteer-statement-changed.pdf",
-    "structureHash": "sha256:f5cfe6e65fc129715315bd4ce38672e2df17111f8a51676c249a0b713d15989a"
+    "structureHash": "sha256:a347578b84533aed04d67ecd0070bcab54d6b6f97e42882bf1986e4e60338f45"
   },
   {
     "producer": "react-pdf",
@@ -284,7 +284,7 @@
     "variant": "baseline",
     "renderCommand": "renderToBuffer(<Document>…)",
     "file": "react-pdf-statement-baseline.pdf",
-    "structureHash": "sha256:e3d383c3a6b8375d917a693e0fdd0e617b0658c44b4efae77677e1a9c030f17f"
+    "structureHash": "sha256:b815196a3334a24330a8e52d3b2a5f4d123bebb6602f6165751b9d36c856c6c0"
   },
   {
     "producer": "react-pdf",
@@ -293,6 +293,6 @@
     "variant": "changed",
     "renderCommand": "renderToBuffer(<Document>…)",
     "file": "react-pdf-statement-changed.pdf",
-    "structureHash": "sha256:3c040ff619cd26a51d8a680c56282ca239016fdffde6e025b3e9e056212f6c42"
+    "structureHash": "sha256:12ab44ecfb5e3a69465f3fd2175afcf021a9d19851239fb0d8c6f205fdcd7142"
   }
 ]

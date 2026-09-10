@@ -28,10 +28,11 @@ const fx = (name: string): Uint8Array =>
 // Baseline extraction — { headings, tables }. Expected: invoice 3h/1t,
 // contract 6h/0t, statement 3h/2t, compact 1h/1t.
 const EXTRACTION: Record<Producer, Record<DocId, { headings: number; tables: number }>> = {
-  'react-pdf': { invoice: { headings: 3, tables: 2 /*F3 fragmented*/ }, contract: { headings: 6, tables: 0 }, statement: { headings: 0 /*F2*/, tables: 2 }, compact: { headings: 1, tables: 1 } },
-  pdfkit: { invoice: { headings: 3, tables: 1 /*F4 under-detected*/ }, contract: { headings: 6, tables: 0 }, statement: { headings: 0 /*F2*/, tables: 2 }, compact: { headings: 1, tables: 1 } },
-  puppeteer: { invoice: { headings: 3, tables: 2 /*F3*/ }, contract: { headings: 6, tables: 0 }, statement: { headings: 0 /*F2*/, tables: 2 }, compact: { headings: 1, tables: 1 } },
-  forme: { invoice: { headings: 4 /*F5*/, tables: 1 /*F4*/ }, contract: { headings: 6, tables: 0 }, statement: { headings: 0 /*F2*/, tables: 2 }, compact: { headings: 1, tables: 1 } },
+  // statement flipped 0 → 3 headings when F2 (no-prose baseline) was fixed.
+  'react-pdf': { invoice: { headings: 3, tables: 2 /*F3 fragmented*/ }, contract: { headings: 6, tables: 0 }, statement: { headings: 3, tables: 2 }, compact: { headings: 1, tables: 1 } },
+  pdfkit: { invoice: { headings: 3, tables: 1 /*F4 under-detected*/ }, contract: { headings: 6, tables: 0 }, statement: { headings: 3, tables: 2 }, compact: { headings: 1, tables: 1 } },
+  puppeteer: { invoice: { headings: 3, tables: 2 /*F3*/ }, contract: { headings: 6, tables: 0 }, statement: { headings: 3, tables: 2 }, compact: { headings: 1, tables: 1 } },
+  forme: { invoice: { headings: 4 /*F5*/, tables: 1 /*F4*/ }, contract: { headings: 6, tables: 0 }, statement: { headings: 4 /*title splits into two H1 runs*/, tables: 2 }, compact: { headings: 1, tables: 1 } },
 };
 
 // The event a human would name for each document's `changed` edit.
