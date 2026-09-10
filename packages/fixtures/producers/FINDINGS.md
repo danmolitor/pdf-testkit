@@ -76,6 +76,18 @@ reclaimed enough vertical space to drop a page, so the diff adds
 an extractor bug, but it means the "clean single event" story only holds on the
 non-Forme producers for this document.
 
+## F7 — Forme's title splits into two H1 runs on the pdfjs path (sidecar immune)
+`forme-invoice` and `forme-statement` both extract 4 headings via pdfjs, not 3:
+the title (`ACME Corporation — Invoice #1042`, `Account Statement — August 2026`)
+comes back as two same-size runs that don't merge, so it reads as two H1s. This
+is a pdfjs run-splitting artifact on Forme's output, **not** an extractor-logic
+bug — and the authoritative `fromFormeLayout` sidecar path is immune: it reports
+3 headings with the title as one node. A clean demonstration of why Forme ships
+the sidecar. (This also corrects earlier notes that attributed Forme's invoice=4
+to F5 — it's F7, the title split, the same cause as Forme's statement=4.) A
+candidate fix is merging adjacent same-size runs across the split, but that's
+extractor tuning, deferred.
+
 ## Status
 - **F2 — RESOLVED** (heading baseline fallback; statement now 3–4 headings).
 - **F1 — on the board as the next feature** (content/value diffing; a scope

@@ -32,7 +32,7 @@ const EXTRACTION: Record<Producer, Record<DocId, { headings: number; tables: num
   'react-pdf': { invoice: { headings: 3, tables: 2 /*F3 fragmented*/ }, contract: { headings: 6, tables: 0 }, statement: { headings: 3, tables: 2 }, compact: { headings: 1, tables: 1 } },
   pdfkit: { invoice: { headings: 3, tables: 1 /*F4 under-detected*/ }, contract: { headings: 6, tables: 0 }, statement: { headings: 3, tables: 2 }, compact: { headings: 1, tables: 1 } },
   puppeteer: { invoice: { headings: 3, tables: 2 /*F3*/ }, contract: { headings: 6, tables: 0 }, statement: { headings: 3, tables: 2 }, compact: { headings: 1, tables: 1 } },
-  forme: { invoice: { headings: 4 /*F5*/, tables: 1 /*F4*/ }, contract: { headings: 6, tables: 0 }, statement: { headings: 4 /*title splits into two H1 runs*/, tables: 2 }, compact: { headings: 1, tables: 1 } },
+  forme: { invoice: { headings: 4 /*F7 title split*/, tables: 1 /*F4*/ }, contract: { headings: 6, tables: 0 }, statement: { headings: 4 /*title splits into two H1 runs*/, tables: 2 }, compact: { headings: 1, tables: 1 } },
 };
 
 // The event a human would name for each document's `changed` edit.
