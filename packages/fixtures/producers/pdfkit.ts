@@ -1,55 +1,68 @@
-// Generates an invoice PDF with PDFKit. PDFKit has no table primitive; the
-// common real-world pattern is manual column positioning plus DRAWN RULED LINES
-// under each row. That is deliberate here — it exercises pdf-testkit's known
-// deferred gap (tables whose grid is drawn, not whitespace-separated). The text
-// is still placed in columns, so this measures whether column clustering can
-// recover the table from the text alone despite the ruled borders.
+// PDFKit — imperative API, no document structure at all: text is positioned by
+// coordinate, tables are drawn with ruled lines. The honest worst case for the
+// pdfjs heuristics. CreationDate is pinned so the committed PDF bytes are stable.
 import PDFDocument from 'pdfkit';
-import { amount, buildSpec, money, type Variant } from './_spec.ts';
+import { buildDoc, type Block, type DocId, type TableRow, type Variant } from './_spec.ts';
 
-const COLS = [40, 300, 380, 470]; // x of each column
+export const meta = {
+  id: 'pdfkit' as const,
+  packageName: 'pdfkit',
+  renderCommand: 'new PDFDocument() + imperative text/lines',
+};
+
+const HSIZE: Record<1 | 2 | 3, number> = { 1: 22, 2: 16, 3: 13 };
+const LEFT = 40;
 const RIGHT = 555;
 const BOTTOM = 800;
 
-export async function generate(variant: Variant): Promise<Uint8Array> {
-  const spec = buildSpec(variant);
-  const itemsSize = spec.demoteItemsHeading ? 13 : 16;
-
-  const doc = new PDFDocument({ size: 'A4', margin: 40 });
+export async function generate(docId: DocId, variant: Variant): Promise<Uint8Array> {
+  const doc = buildDoc(docId, variant);
+  const pdf = new PDFDocument({ size: 'A4', margin: 40 });
+  pdf.info.CreationDate = new Date(0); // pin for byte-stable fixtures
   const chunks: Buffer[] = [];
-  doc.on('data', (c: Buffer) => chunks.push(c));
-  const done = new Promise<Buffer>((resolve) => doc.on('end', () => resolve(Buffer.concat(chunks))));
+  pdf.on('data', (c: Buffer) => chunks.push(c));
+  const done = new Promise<Buffer>((resolve) => pdf.on('end', () => resolve(Buffer.concat(chunks))));
 
-  doc.font('Helvetica-Bold').fontSize(22).text(spec.title, 40, 40);
-  doc.moveDown(0.5).font('Helvetica-Bold').fontSize(16).text(spec.billToHeading);
-  doc.font('Helvetica').fontSize(10).text(spec.billTo);
-  doc.moveDown(0.5).font('Helvetica-Bold').fontSize(itemsSize).text(spec.itemsHeading);
-
-  let y = doc.y + 8;
-  const drawRow = (cells: string[], bold = false): void => {
-    doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(10);
-    cells.forEach((c, i) => {
-      const w = (COLS[i + 1] ?? RIGHT) - COLS[i] - 6;
-      doc.text(c, COLS[i], y, { width: w, lineBreak: false, ellipsis: true });
-    });
-    doc.moveTo(40, y + 13).lineTo(RIGHT, y + 13).lineWidth(0.5).stroke(); // ruled line under the row
-    y += 18;
-    if (y > BOTTOM) {
-      doc.addPage();
+  let y = 40;
+  const ensure = (need: number): void => {
+    if (y + need > BOTTOM) {
+      pdf.addPage();
       y = 40;
     }
   };
 
-  drawRow(spec.columns, true);
-  for (const r of spec.rows) drawRow([r.item, String(r.qty), money(r.unit), money(amount(r))]);
-
-  let ny = y + 10;
-  doc.font('Helvetica').fontSize(10);
-  for (const n of spec.notes) {
-    doc.text(n, 40, ny);
-    ny += 16;
+  for (const b of doc.blocks) {
+    if (b.kind === 'heading') {
+      ensure(HSIZE[b.level] + 8);
+      pdf.font('Helvetica-Bold').fontSize(HSIZE[b.level]).text(b.text, LEFT, y);
+      y = pdf.y + 6;
+    } else if (b.kind === 'para') {
+      ensure(28);
+      pdf.font('Helvetica').fontSize(10).text(b.text, LEFT, y, { width: RIGHT - LEFT });
+      y = pdf.y + 6;
+    } else {
+      const n = b.columns.length;
+      const colX = Array.from({ length: n }, (_, i) => LEFT + (i * (RIGHT - LEFT)) / n);
+      const drawRow = (row: TableRow, bold: boolean): void => {
+        ensure(18);
+        pdf.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(10);
+        if (row.kind === 'section') {
+          pdf.text(row.cells[0] ?? '', LEFT, y, { width: RIGHT - LEFT, lineBreak: false });
+        } else {
+          row.cells.forEach((c, i) => {
+            const w = (colX[i + 1] ?? RIGHT) - (colX[i] ?? LEFT) - 6;
+            pdf.text(c, colX[i] ?? LEFT, y, { width: w, lineBreak: false, ellipsis: true });
+          });
+        }
+        pdf.moveTo(LEFT, y + 13).lineTo(RIGHT, y + 13).lineWidth(0.5).stroke();
+        y += 18;
+      };
+      drawRow({ cells: b.columns }, true);
+      for (const row of b.rows) drawRow(row, row.kind === 'total');
+      y += 6;
+    }
   }
 
-  doc.end();
+  pdf.end();
   return new Uint8Array(await done);
 }

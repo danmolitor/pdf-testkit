@@ -43,11 +43,11 @@ jobs:
       # from the bundle's own location, which a consumer's checkout is not.
       - run: npm ci
       - run: npm run build
-      - name: Snapshot the puppeteer invoice and its demoted-heading twin
+      - name: Snapshot the puppeteer contract and its demoted-heading twin
         run: |
           mkdir -p snapshots
-          npx pdf-testkit snapshot packages/fixtures/pdfs/puppeteer-invoice.pdf --out snapshots/puppeteer-invoice.json
-          npx pdf-testkit snapshot packages/fixtures/pdfs/puppeteer-invoice-demoted.pdf --out snapshots/puppeteer-invoice-demoted.json
+          npx pdf-testkit snapshot packages/fixtures/pdfs/puppeteer-contract-baseline.pdf --out snapshots/puppeteer-contract-baseline.json
+          npx pdf-testkit snapshot packages/fixtures/pdfs/puppeteer-contract-changed.pdf --out snapshots/puppeteer-contract-changed.json
       # The committed bundle with no install of its own: what a consumer's
       # workflow runs when it references packages/action by repository path.
       # The unit tests cover the rendered Markdown; this is the only place
@@ -57,12 +57,13 @@ jobs:
         continue-on-error: true
         uses: ./packages/action
         with:
-          baseline: snapshots/puppeteer-invoice.json
-          current: snapshots/puppeteer-invoice-demoted.json
-          # Inferred structure caps heading-hierarchy-changed at warn, and
-          # that one event is the whole diff for this pair.
+          baseline: snapshots/puppeteer-contract-baseline.json
+          current: snapshots/puppeteer-contract-changed.json
+          # Inferred structure caps heading-hierarchy-changed at warn; the
+          # demotion also shrinks the heading's box, so the diff is two warn
+          # events (heading-hierarchy-changed + element-resized).
           fail-on: warn
-      - name: The action failed on the regression and reported exactly one event
+      - name: The action failed on the regression and reported two events
         env:
           OUTCOME: ${{ steps.diff.outcome }}
           CHANGED: ${{ steps.diff.outputs.changed }}
@@ -72,7 +73,7 @@ jobs:
           echo "outcome=$OUTCOME changed=$CHANGED event-count=$COUNT"
           [ "$OUTCOME" = failure ] || { echo "::error::fail-on: warn should fail the step on a demoted heading; outcome was $OUTCOME"; exit 1; }
           [ "$CHANGED" = true ] || { echo "::error::expected output changed=true, got '$CHANGED'"; exit 1; }
-          [ "$COUNT" = 1 ] || { echo "::error::expected exactly one event (the demoted heading), got '$COUNT'"; exit 1; }
+          [ "$COUNT" = 2 ] || { echo "::error::expected two events (demoted heading + its resize), got '$COUNT'"; exit 1; }
       - name: The comment is on this pull request, once, and names the event
         env:
           GH_TOKEN: ${{ github.token }}
@@ -82,7 +83,7 @@ jobs:
           body=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --jq '.[] | select(.body | contains("<!-- pdf-testkit -->")) | .body')
           n=$(printf '%s\n' "$body" | grep -c '<!-- pdf-testkit -->' || true)
           [ "$n" = 1 ] || { echo "::error::expected exactly one pdf-testkit comment on #$PR (the marker makes re-runs update it), found $n"; exit 1; }
-          for needle in 'heading-hierarchy-changed' 'puppeteer-invoice-demoted.json' '1 warning'; do
+          for needle in 'heading-hierarchy-changed' 'puppeteer-contract-changed.json'; do
             printf '%s\n' "$body" | grep -qF "$needle" || { echo "::error::comment does not contain '$needle'"; printf '%s\n' "$body"; exit 1; }
           done
           echo "comment verified on #$PR"

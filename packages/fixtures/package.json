@@ -24,6 +24,8 @@
   "homepage": "https://github.com/danmolitor/pdf-testkit#readme",
   "bugs": "https://github.com/danmolitor/pdf-testkit/issues",
   "devDependencies": {
+    "@formepdf/core": "^0.22.0",
+    "@formepdf/react": "^0.22.0",
     "@react-pdf/renderer": "^4.8.1",
     "@types/pdfkit": "^0.17.6",
     "pdfkit": "^0.20.1",

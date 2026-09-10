@@ -103,7 +103,7 @@ async function glyphVariety(webp: Uint8Array, snap: Awaited<ReturnType<typeof fr
 }
 
 describe('renderPages — the text is actually drawn', () => {
-  for (const name of ['invoice', 'pdfkit-invoice', 'puppeteer-invoice']) {
+  for (const name of ['invoice', 'pdfkit-invoice-baseline', 'puppeteer-invoice-baseline']) {
     it(`${name}: text runs are ink, not a grid of identical glyph boxes`, async () => {
       const bytes = fixture(name);
       const snap = await fromPdf(bytes);

@@ -1,0 +1,298 @@
+[
+  {
+    "producer": "forme",
+    "producerVersion": "0.22.0",
+    "doc": "compact",
+    "variant": "baseline",
+    "renderCommand": "renderDocumentWithLayout(<Document>)",
+    "file": "forme-compact-baseline.pdf",
+    "structureHash": "sha256:273f28d8f416edd3ff139bea28780930600286e654c618276c5efcb438066553",
+    "layoutHash": "sha256:f01365ccce7b7ff42ac7d1c5f0f8b9e9a2c318b147545c9db5aa681f979c2a3e"
+  },
+  {
+    "producer": "forme",
+    "producerVersion": "0.22.0",
+    "doc": "compact",
+    "variant": "changed",
+    "renderCommand": "renderDocumentWithLayout(<Document>)",
+    "file": "forme-compact-changed.pdf",
+    "structureHash": "sha256:93ec62551afcc20c3504087b32db836d06e6c3f5b0454b9d098998ee86b27614",
+    "layoutHash": "sha256:b6032e65d06da448560f72182025daffc446a8cb96e9af31db04e300f958d7ca"
+  },
+  {
+    "producer": "forme",
+    "producerVersion": "0.22.0",
+    "doc": "contract",
+    "variant": "baseline",
+    "renderCommand": "renderDocumentWithLayout(<Document>)",
+    "file": "forme-contract-baseline.pdf",
+    "structureHash": "sha256:682572ff84f17337c99a35deb7d106edfe7775d2502ef1d6688b1c2de95d86cd",
+    "layoutHash": "sha256:d6509f893c09004efc2f4a77f621e3db7dd1fc758172b587ed28113be89809d4"
+  },
+  {
+    "producer": "forme",
+    "producerVersion": "0.22.0",
+    "doc": "contract",
+    "variant": "changed",
+    "renderCommand": "renderDocumentWithLayout(<Document>)",
+    "file": "forme-contract-changed.pdf",
+    "structureHash": "sha256:46163944837474ad9b17fffaebc2b3ba2f957ef7a04fe2aacd852adae9d3a0c2",
+    "layoutHash": "sha256:4e9ec9364e0d1383b09fb8d83a17420291e5bd209e4631c965c1d12f16581b05"
+  },
+  {
+    "producer": "forme",
+    "producerVersion": "0.22.0",
+    "doc": "invoice",
+    "variant": "baseline",
+    "renderCommand": "renderDocumentWithLayout(<Document>)",
+    "file": "forme-invoice-baseline.pdf",
+    "structureHash": "sha256:cebf5580abb1d217a4bb1c5c004d0ef6997d884480dc575100a9a0384012eb78",
+    "layoutHash": "sha256:a7be029b7b5a8bdf499c29a768c40e9ce73f809f2feffa7d4b573c08e884f22f"
+  },
+  {
+    "producer": "forme",
+    "producerVersion": "0.22.0",
+    "doc": "invoice",
+    "variant": "changed",
+    "renderCommand": "renderDocumentWithLayout(<Document>)",
+    "file": "forme-invoice-changed.pdf",
+    "structureHash": "sha256:9d95e5c04ae21c70c15849d6197b4119d69e8bcfbcd11c8aaf3d1359d346aa27",
+    "layoutHash": "sha256:f30531176b2fc3954484925992087df9e124fb1898dfa22f7fb604be406eef48"
+  },
+  {
+    "producer": "forme",
+    "producerVersion": "0.22.0",
+    "doc": "statement",
+    "variant": "baseline",
+    "renderCommand": "renderDocumentWithLayout(<Document>)",
+    "file": "forme-statement-baseline.pdf",
+    "structureHash": "sha256:303515f58bf7e2756bdb7e8de32a9ab40077db9334eb0039bdedcdb95895a953",
+    "layoutHash": "sha256:f2fbd5fd28cd315f9a10e0c22454077872d97da8bc02a323667ca9a9dea97f7e"
+  },
+  {
+    "producer": "forme",
+    "producerVersion": "0.22.0",
+    "doc": "statement",
+    "variant": "changed",
+    "renderCommand": "renderDocumentWithLayout(<Document>)",
+    "file": "forme-statement-changed.pdf",
+    "structureHash": "sha256:103a32ed38bcb4d734b82316b11a7be9953b6c7d3b3198b401bd484460c7d7e2",
+    "layoutHash": "sha256:ad2f8a9a72790cf50fcb80cc3cd44c0213e70a9c9da482bafc330b8fcb0c6cd8"
+  },
+  {
+    "producer": "pdfkit",
+    "producerVersion": "0.20.1",
+    "doc": "compact",
+    "variant": "baseline",
+    "renderCommand": "new PDFDocument() + imperative text/lines",
+    "file": "pdfkit-compact-baseline.pdf",
+    "structureHash": "sha256:f8d7e6c56e878994e56713ce4e77adf5ac6d18587c7850d111ca38c69dbbcf92"
+  },
+  {
+    "producer": "pdfkit",
+    "producerVersion": "0.20.1",
+    "doc": "compact",
+    "variant": "changed",
+    "renderCommand": "new PDFDocument() + imperative text/lines",
+    "file": "pdfkit-compact-changed.pdf",
+    "structureHash": "sha256:853ad571d9c3f350d924883993535f3efd81ef036ecfee8100078706f969a049"
+  },
+  {
+    "producer": "pdfkit",
+    "producerVersion": "0.20.1",
+    "doc": "contract",
+    "variant": "baseline",
+    "renderCommand": "new PDFDocument() + imperative text/lines",
+    "file": "pdfkit-contract-baseline.pdf",
+    "structureHash": "sha256:abdc9b3141ba504bd931b5081a345dfe5bb33741557ff56e8f7eeae48c12efb7"
+  },
+  {
+    "producer": "pdfkit",
+    "producerVersion": "0.20.1",
+    "doc": "contract",
+    "variant": "changed",
+    "renderCommand": "new PDFDocument() + imperative text/lines",
+    "file": "pdfkit-contract-changed.pdf",
+    "structureHash": "sha256:c164e8ebe71242efb197e96b306914fc87f0127c7676ef5c05285472497f5db9"
+  },
+  {
+    "producer": "pdfkit",
+    "producerVersion": "0.20.1",
+    "doc": "invoice",
+    "variant": "baseline",
+    "renderCommand": "new PDFDocument() + imperative text/lines",
+    "file": "pdfkit-invoice-baseline.pdf",
+    "structureHash": "sha256:75e9c95be2a1d1f96676078eb6a2eb28d77946794e2339bef659197b819b1f28"
+  },
+  {
+    "producer": "pdfkit",
+    "producerVersion": "0.20.1",
+    "doc": "invoice",
+    "variant": "changed",
+    "renderCommand": "new PDFDocument() + imperative text/lines",
+    "file": "pdfkit-invoice-changed.pdf",
+    "structureHash": "sha256:0cfcfbd2753a81f2817266051998ca83d9734725afa8434ff768bb8152ad31c0"
+  },
+  {
+    "producer": "pdfkit",
+    "producerVersion": "0.20.1",
+    "doc": "statement",
+    "variant": "baseline",
+    "renderCommand": "new PDFDocument() + imperative text/lines",
+    "file": "pdfkit-statement-baseline.pdf",
+    "structureHash": "sha256:b31bef8d4748d6e8271031a1a5f55c75de6b783f75b5476e54f3a2cfe98433ef"
+  },
+  {
+    "producer": "pdfkit",
+    "producerVersion": "0.20.1",
+    "doc": "statement",
+    "variant": "changed",
+    "renderCommand": "new PDFDocument() + imperative text/lines",
+    "file": "pdfkit-statement-changed.pdf",
+    "structureHash": "sha256:3b40357844392c984c30040a5972d252e749f7a16bb99ba6736903ab5ce5244e"
+  },
+  {
+    "producer": "puppeteer",
+    "producerVersion": "25.9.0",
+    "doc": "compact",
+    "variant": "baseline",
+    "renderCommand": "chrome page.pdf({ format: \"A4\" })",
+    "file": "puppeteer-compact-baseline.pdf",
+    "structureHash": "sha256:2104390e71f2bcdf09c204e5bf5aa5bf086770c532c8821050d39d3cd849321c"
+  },
+  {
+    "producer": "puppeteer",
+    "producerVersion": "25.9.0",
+    "doc": "compact",
+    "variant": "changed",
+    "renderCommand": "chrome page.pdf({ format: \"A4\" })",
+    "file": "puppeteer-compact-changed.pdf",
+    "structureHash": "sha256:15d34eeed78af383490ef7572a6004edf872db483065de6ec3bb5af1b1d22735"
+  },
+  {
+    "producer": "puppeteer",
+    "producerVersion": "25.9.0",
+    "doc": "contract",
+    "variant": "baseline",
+    "renderCommand": "chrome page.pdf({ format: \"A4\" })",
+    "file": "puppeteer-contract-baseline.pdf",
+    "structureHash": "sha256:e201f6f8e5c7913d647bdfd6f30c1544cd92ebd85dbd68770a4145b55575c38b"
+  },
+  {
+    "producer": "puppeteer",
+    "producerVersion": "25.9.0",
+    "doc": "contract",
+    "variant": "changed",
+    "renderCommand": "chrome page.pdf({ format: \"A4\" })",
+    "file": "puppeteer-contract-changed.pdf",
+    "structureHash": "sha256:52a66e499ccad76ec2f9d7e5c58e33cfdf134e0ff23268505043d9426f4d189f"
+  },
+  {
+    "producer": "puppeteer",
+    "producerVersion": "25.9.0",
+    "doc": "invoice",
+    "variant": "baseline",
+    "renderCommand": "chrome page.pdf({ format: \"A4\" })",
+    "file": "puppeteer-invoice-baseline.pdf",
+    "structureHash": "sha256:e4644564b8bcf0a825ceeb2321a4e1f0dfff2d8973502476e7eea4180fdcfa96"
+  },
+  {
+    "producer": "puppeteer",
+    "producerVersion": "25.9.0",
+    "doc": "invoice",
+    "variant": "changed",
+    "renderCommand": "chrome page.pdf({ format: \"A4\" })",
+    "file": "puppeteer-invoice-changed.pdf",
+    "structureHash": "sha256:7a84246cf04b3e34031a052dcb7fa5953aa9fa95b99ddce2777e06e18e7e5ba7"
+  },
+  {
+    "producer": "puppeteer",
+    "producerVersion": "25.9.0",
+    "doc": "statement",
+    "variant": "baseline",
+    "renderCommand": "chrome page.pdf({ format: \"A4\" })",
+    "file": "puppeteer-statement-baseline.pdf",
+    "structureHash": "sha256:02db28679251e25ed298a9d46dda3c8d2b1b5d9e17f483b83cad4150e79b3bd0"
+  },
+  {
+    "producer": "puppeteer",
+    "producerVersion": "25.9.0",
+    "doc": "statement",
+    "variant": "changed",
+    "renderCommand": "chrome page.pdf({ format: \"A4\" })",
+    "file": "puppeteer-statement-changed.pdf",
+    "structureHash": "sha256:f5cfe6e65fc129715315bd4ce38672e2df17111f8a51676c249a0b713d15989a"
+  },
+  {
+    "producer": "react-pdf",
+    "producerVersion": "4.8.1",
+    "doc": "compact",
+    "variant": "baseline",
+    "renderCommand": "renderToBuffer(<Document>…)",
+    "file": "react-pdf-compact-baseline.pdf",
+    "structureHash": "sha256:b4db6ac34005ccc131eeb801dba6b946db6b88f96c6955494a54971812225cac"
+  },
+  {
+    "producer": "react-pdf",
+    "producerVersion": "4.8.1",
+    "doc": "compact",
+    "variant": "changed",
+    "renderCommand": "renderToBuffer(<Document>…)",
+    "file": "react-pdf-compact-changed.pdf",
+    "structureHash": "sha256:cd03dd9bea2bf0d8a7b7844df5e099c0eac79daa79e500f3a4d143c447c5a104"
+  },
+  {
+    "producer": "react-pdf",
+    "producerVersion": "4.8.1",
+    "doc": "contract",
+    "variant": "baseline",
+    "renderCommand": "renderToBuffer(<Document>…)",
+    "file": "react-pdf-contract-baseline.pdf",
+    "structureHash": "sha256:0a9ba5d8891d40f9b067d38cf9f7844a836d655dc0b1abcbfcae1b9beed64a33"
+  },
+  {
+    "producer": "react-pdf",
+    "producerVersion": "4.8.1",
+    "doc": "contract",
+    "variant": "changed",
+    "renderCommand": "renderToBuffer(<Document>…)",
+    "file": "react-pdf-contract-changed.pdf",
+    "structureHash": "sha256:e2b7c31e292e979ee8583506d83faa7a6df892baba303981e532f770f16780f2"
+  },
+  {
+    "producer": "react-pdf",
+    "producerVersion": "4.8.1",
+    "doc": "invoice",
+    "variant": "baseline",
+    "renderCommand": "renderToBuffer(<Document>…)",
+    "file": "react-pdf-invoice-baseline.pdf",
+    "structureHash": "sha256:dc2a2486d0b0f9a1ea419893d9f095935844b9e07eb803e943f7a65ef813ba46"
+  },
+  {
+    "producer": "react-pdf",
+    "producerVersion": "4.8.1",
+    "doc": "invoice",
+    "variant": "changed",
+    "renderCommand": "renderToBuffer(<Document>…)",
+    "file": "react-pdf-invoice-changed.pdf",
+    "structureHash": "sha256:eafc475b977c8ebf7faca43445cb320abeca426db6a200cb2a5daa7294e20fb2"
+  },
+  {
+    "producer": "react-pdf",
+    "producerVersion": "4.8.1",
+    "doc": "statement",
+    "variant": "baseline",
+    "renderCommand": "renderToBuffer(<Document>…)",
+    "file": "react-pdf-statement-baseline.pdf",
+    "structureHash": "sha256:e3d383c3a6b8375d917a693e0fdd0e617b0658c44b4efae77677e1a9c030f17f"
+  },
+  {
+    "producer": "react-pdf",
+    "producerVersion": "4.8.1",
+    "doc": "statement",
+    "variant": "changed",
+    "renderCommand": "renderToBuffer(<Document>…)",
+    "file": "react-pdf-statement-changed.pdf",
+    "structureHash": "sha256:3c040ff619cd26a51d8a680c56282ca239016fdffde6e025b3e9e056212f6c42"
+  }
+]

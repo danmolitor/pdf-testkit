@@ -1,0 +1,57 @@
+name: Producer corpus
+
+# The per-commit suite (corpus.regression.test.ts) runs extraction + diff over
+# the COMMITTED fixtures on every push — fast, no rendering. This job is the
+# other half: it actually renders every producer and checks the result against
+# what's committed, so a producer version bump that changes extraction is a
+# visible, reviewable failure instead of silent drift.
+on:
+  schedule:
+    - cron: '0 6 * * 1' # Mondays 06:00 UTC — catches upstream producer releases
+  workflow_dispatch: {}
+  pull_request:
+    types: [labeled, synchronize] # runs when a PR carries the `run-corpus` label
+
+jobs:
+  regenerate:
+    name: Render every producer and diff against committed
+    # schedule/dispatch always; PRs only when labelled run-corpus.
+    if: >-
+      github.event_name != 'pull_request' ||
+      contains(github.event.pull_request.labels.*.name, 'run-corpus')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      # Pull the rendering producers to their latest published versions so a new
+      # release is caught here. npm ci alone installs the locked versions and
+      # would never surface an upstream bump. Puppeteer uses the runner's
+      # preinstalled Chrome (the producer discovers /usr/bin/google-chrome).
+      - name: Update producers to latest
+        run: npm install -w @pdf-testkit/fixtures @react-pdf/renderer@latest pdfkit@latest puppeteer-core@latest @formepdf/core@latest @formepdf/react@latest
+      - name: Regenerate the corpus
+        run: node packages/fixtures/producers/generate.ts
+      # The manifest carries each fixture's structure hash and producer version;
+      # PDF bytes vary run-to-run (embedded dates) and are NOT gated. A manifest
+      # change means either a producer version moved or its output's extracted
+      # structure changed — both worth a human's eyes.
+      - name: Fail on structural or producer-version drift
+        run: |
+          if ! git diff --exit-code -- packages/fixtures/corpus-manifest.json; then
+            echo "::error::Corpus manifest changed — a producer version bump or an extraction change altered the structure (diff above). If intended, run 'node packages/fixtures/producers/generate.ts' locally and commit the regenerated fixtures + manifest."
+            exit 1
+          fi
+          echo "Corpus manifest unchanged — no structural drift."
+      - name: Upload regenerated corpus for inspection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regenerated-corpus
+          path: |
+            packages/fixtures/pdfs/
+            packages/fixtures/corpus-manifest.json
