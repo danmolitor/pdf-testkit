@@ -79,7 +79,13 @@ baseline; later runs diff against it. Accept intentional changes with `-u` (Vite
 mode) or `PDF_TESTKIT_UPDATE=1`. On CI, a missing baseline **fails** rather than being created
 silently.
 
-Options: `toMatchPDFSnapshot({ minConfidence, positionThresholdPts, ignoreRoles, severityOverrides, snapshotDir, snapshotName })`.
+Options: `toMatchPDFSnapshot({ contentChanges, minConfidence, positionThresholdPts, ignoreRoles, severityOverrides, snapshotDir, snapshotName })`.
+
+By default pdf-testkit diffs **structure, not values** — a cell that keeps its slot but changes its
+text (a wrong total) fires nothing. Set `contentChanges: true` to also emit `element-content-changed`
+(at `warn`) for text edits at a stable slot. It stays narrow: it fires only on matched pairs, so
+added/removed content is never reclassified as an edit. Raise it to a failure with
+`severityOverrides: { 'element-content-changed': 'error' }`.
 
 ### FormePDF fast path
 
@@ -120,6 +126,7 @@ pdf-testkit diff a.pdf b.pdf                           # human-readable event li
 pdf-testkit diff base.json new.pdf --json             # machine-readable DiffResult
 pdf-testkit diff a.pdf b.pdf --verbose                 # every event, ungrouped
 pdf-testkit diff a.pdf b.pdf --fail-on warn --min-confidence 0.7
+pdf-testkit diff a.pdf b.pdf --content --fail-on warn         # also catch text edits (wrong totals)
 
 pdf-testkit render-pages invoice.pdf --out pages/ --dpi 150   # WebP page images (needs @napi-rs/canvas)
 pdf-testkit check-determinism dist/invoice.pdf --cmd "npm run render:invoice" --clock-offset 26h
@@ -279,7 +286,8 @@ typed events instead of a similarity score:
 Because matching resolves *moved* vs *removed+added*, reordering untouched content, whitespace/
 case edits, and sub-threshold jitter produce **no** events — that's the whole point. The same
 mechanism means an in-place text edit (same role, same box) is treated as the *same* node, so a
-pure content change with unchanged structure passes clean — see the scope note at the top.
+pure content change with unchanged structure passes clean by default — opt in with `contentChanges`
+/ `--content` to also emit `element-content-changed` (opt-in, `warn`) for exactly those edits.
 
 ### Grouping
 

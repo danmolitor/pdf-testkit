@@ -56,6 +56,24 @@ describe('pdf-testkit CLI', () => {
     const anyGate = await run(['diff', invoiceSnap, invoiceSnap, '--fail-on', 'any']);
     expect(anyGate.code).toBe(0);
   });
+
+  it('--content surfaces a stable-slot value edit that is silent by default', async () => {
+    const base = fileURLToPath(new URL('../../fixtures/pdfs/react-pdf-statement-baseline.pdf', import.meta.url));
+    const changed = fileURLToPath(new URL('../../fixtures/pdfs/react-pdf-statement-changed.pdf', import.meta.url));
+
+    // Default: structure-only, the changed totals fire nothing.
+    const off = await run(['diff', base, changed, '--json']);
+    expect(JSON.parse(off.stdout).changed).toBe(false);
+
+    // --content: the two totals surface as element-content-changed.
+    const on = await run(['diff', base, changed, '--content', '--json']);
+    const events = JSON.parse(on.stdout).events as { type: string }[];
+    expect(events.filter((e) => e.type === 'element-content-changed')).toHaveLength(2);
+
+    // warn severity: fails an --any gate, but not the default error gate.
+    expect((await run(['diff', base, changed, '--content', '--fail-on', 'any'])).code).toBe(1);
+    expect((await run(['diff', base, changed, '--content', '--fail-on', 'error'])).code).toBe(0);
+  });
 });
 
 /**

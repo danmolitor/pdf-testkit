@@ -11,6 +11,7 @@ export type SemanticEventType =
   | 'element-removed'
   | 'element-moved'
   | 'element-resized'
+  | 'element-content-changed'
   | 'uncharacterized-change';
 
 export type Severity = 'info' | 'warn' | 'error';
@@ -60,6 +61,29 @@ export interface ElementResizedEvent extends BaseEvent, PairedGeometry {
   pageIndex: number;
   widthDelta: number;
   heightDelta: number;
+}
+
+/**
+ * The text at a stable slot changed — a matched pair whose content differs. This
+ * is the one thing structural diffing deliberately does NOT catch by default (a
+ * cell that keeps its slot matches, so no geometry event fires — the "wrong
+ * total" a spreadsheet-shaped PDF can ship silently). Opt-in via
+ * `DiffOptions.contentChanges`, `warn` severity: it is a real finding, but a
+ * content diff on a document that is *meant* to change its numbers every run
+ * would be pure noise if it failed a suite by default.
+ *
+ * It stays narrow by inheritance, not by a heuristic: it fires only on pairs the
+ * matcher already paired (same role, same slot), so added/removed content is
+ * `element-added`/`element-removed` and never reclassified here. A growing
+ * invoice's new rows do not become content edits; only its recomputed totals do.
+ */
+export interface ElementContentChangedEvent extends BaseEvent, PairedGeometry {
+  type: 'element-content-changed';
+  nodeId: string;
+  role: NodeRole;
+  pageIndex: number;
+  fromTextPreview: string;
+  toTextPreview: string;
 }
 
 export interface UncharacterizedChangeEvent extends BaseEvent {
@@ -165,6 +189,7 @@ export type SemanticEvent =
   | ElementRemovedEvent
   | ElementMovedEvent
   | ElementResizedEvent
+  | ElementContentChangedEvent
   | UncharacterizedChangeEvent;
 
 /** How much work a comparison did — reported, not interpreted. */
@@ -193,6 +218,13 @@ export interface DiffOptions {
   ignoreRoles?: NodeRole[];
   /** Drop events whose confidence is below this (0..1). Default 0. */
   minConfidence?: number;
+  /**
+   * Emit `element-content-changed` for matched pairs whose text differs.
+   * Off by default: structural diffing checks structure, not values, and a
+   * document meant to carry different numbers each run would fail on every diff.
+   * Turn it on to catch the wrong-total case. See {@link ElementContentChangedEvent}.
+   */
+  contentChanges?: boolean;
 }
 
 export const DEFAULT_SEVERITY: Record<SemanticEventType, Severity> = {
@@ -212,6 +244,11 @@ export const DEFAULT_SEVERITY: Record<SemanticEventType, Severity> = {
   // movement (a 112pt-taller container reported as "moved 56pt" on this
   // event's first CI run).
   'element-resized': 'warn',
+  // A text edit at a stable slot, surfaced only when `contentChanges` is on.
+  // warn, not error: it is opt-in already, and a suite that enables it on a
+  // document whose numbers legitimately change should see it without a red
+  // build unless the caller raises it via severityOverrides.
+  'element-content-changed': 'warn',
   // The fallback channel: the content hash changed but no nameable event
   // fired. A diff that stays silent over changed content is the same
   // silent-failure shape this tool exists to expose — so the silence

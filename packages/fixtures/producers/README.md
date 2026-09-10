@@ -56,9 +56,12 @@ the others — which is exactly why Forme ships the layout sidecar: the fast pat
 sidesteps the heuristics. It anchors every other producer's fidelity number.
 
 ## Cross-producer findings
-- **A changed total fires nothing** (F1) — content edits at a stable slot are not
-  events, by design. pdf-testkit checks structure, not values. On the board as
-  the next feature (a scope decision, not a fix).
+- **A changed total fires nothing by default** (F1) — content edits at a stable
+  slot are not events unless you ask for them. Opt in with `contentChanges` (diff/
+  matcher) or `--content` (CLI) to emit `element-content-changed` at `warn`; it
+  stays narrow by matcher inheritance (the statement's two totals fire, the
+  invoice's 129–142 added rows stay `element-added`). Measured across all four
+  producers before it was built.
 - **Headings on a headings-and-tables-only document** (F2) — **fixed**: the
   `statement` (no body prose) now detects its headings via a distinct-size-rank
   fallback instead of extracting zero.

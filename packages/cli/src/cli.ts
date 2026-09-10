@@ -49,17 +49,19 @@ export function buildProgram(): Command {
     .option('-v, --verbose', 'list every event instead of grouping related ones')
     .option('--min-confidence <n>', 'drop events below this confidence (0..1)', parseFloat)
     .option('--threshold <pts>', 'on-page movement (pts) that counts as a move', parseFloat)
+    .option('--content', 'also report text edits at a stable slot (the "wrong total" case)')
     .option('--fail-on <level>', 'error | warn | any', 'error')
     .action(
       async (
         a: string,
         b: string,
-        opts: { json?: boolean; verbose?: boolean; minConfidence?: number; threshold?: number; failOn?: string },
+        opts: { json?: boolean; verbose?: boolean; minConfidence?: number; threshold?: number; content?: boolean; failOn?: string },
       ) => {
         const [sa, sb] = await Promise.all([loadAsSnapshot(a), loadAsSnapshot(b)]);
         const diffOpts: DiffOptions = {};
         if (opts.minConfidence != null) diffOpts.minConfidence = opts.minConfidence;
         if (opts.threshold != null) diffOpts.positionThresholdPts = opts.threshold;
+        if (opts.content) diffOpts.contentChanges = true;
         const result = diffSnapshots(sa, sb, diffOpts);
 
         // --json stays the full per-element list unconditionally: it is the

@@ -24,13 +24,34 @@ Change caught (`baseline` → `changed`), the event a human would name:
 | statement | alter a total value | ❌ **zero events — by design** |
 | compact | move a block | ✅ `element-moved` |
 
-## F1 — A changed total fires nothing (scope boundary, all producers)
+## F1 — A changed total fires nothing by default — **RESOLVED (opt-in)**
 Altering `$1,250.00` → `$1,450.00` in the statement's Payments total produced
-**0 events on every producer.** This is the documented "structure, not content"
-boundary made concrete: the cell keeps its slot, so it matches and nothing
-fires. Correct by design — but it's the finding most likely to surprise someone
-testing invoices/statements, so it belongs in the READMEs and outreach as an
-explicit boundary: *pdf-testkit will not catch a wrong number.*
+**0 events on every producer.** This is the "structure, not content" boundary
+made concrete: the cell keeps its slot, so it matches and nothing fires. Correct
+by default — but it is the finding most likely to surprise someone testing
+invoices/statements, so it is now addressed with an **opt-in** rather than a
+silent boundary.
+
+Enabling `contentChanges` (diff/matcher option) / `--content` (CLI) emits
+`element-content-changed` at `warn` for any matched pair whose text differs. The
+noise rule — the load-bearing part — is that it stays narrow *by inheritance*:
+it fires only on nodes the 0.4.0 matcher already paired, so added/removed content
+keeps its own `element-added`/`element-removed` and is never reclassified. Proven
+against the corpus before it was built (measured, all four producers):
+
+| doc | content edits fired | added rows (unchanged by the opt-in) |
+|---|---|---|
+| statement | **2** (the two totals) | 0 |
+| invoice | 3 (PDFKit/Forme) · 6 (react-pdf/Puppeteer) | 129–142, still `element-added` |
+| contract | 0 (heading demotion, same text) | 0 |
+| compact | 0 (a block move, same text) | 0 |
+
+`warn`, not `error`: it is opt-in already, and a document whose numbers change
+every run should surface the edit without failing an `error`-gated build unless
+the caller raises it via `severityOverrides`. Never folded by grouping — each
+edit is its own single-member group even inside the invoice's page-shift cascade,
+so the one number that changed is never buried. Pinned in
+`corpus.regression.test.ts`.
 
 ## F2 — Headings missed on a headings-and-tables-only document — **RESOLVED**
 The statement (H1 + two H2s, no body prose) extracted **0 headings** on every
@@ -89,10 +110,10 @@ candidate fix is merging adjacent same-size runs across the split, but that's
 extractor tuning, deferred.
 
 ## Status
+- **F1 — RESOLVED (opt-in)** (`element-content-changed`; `contentChanges` /
+  `--content`; narrow by matcher inheritance, proven against the corpus).
 - **F2 — RESOLVED** (heading baseline fallback; statement now 3–4 headings).
-- **F1 — on the board as the next feature** (content/value diffing; a scope
-  decision, not extractor tuning — see the "structure, not content" boundary).
-- F3–F6 remain recorded findings; the fixtures are their repros.
+- F3–F7 remain recorded findings; the fixtures are their repros.
 
 ## What held up everywhere (the non-findings worth stating)
 - Contract heading hierarchy (H1–H3): 6/6 on all four producers.

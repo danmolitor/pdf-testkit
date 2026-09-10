@@ -187,6 +187,32 @@ export function diffSnapshots(
       }
     }
 
+    // Opt-in content diff. A matched pair whose text differs is a content edit
+    // at a stable slot — the "wrong total" case structural diffing otherwise
+    // stays silent on (the pair keeps its slot, so no geometry event fires).
+    // Narrow by inheritance: only PAIRED nodes reach here, so added/removed
+    // content is already `element-added`/`element-removed`, never reclassified.
+    if (
+      opts.contentChanges &&
+      base.normText !== after.normText &&
+      (base.normText != null || after.normText != null)
+    ) {
+      events.push({
+        type: 'element-content-changed',
+        severity: severityOf('element-content-changed'),
+        confidence: conf,
+        nodeId: after.id,
+        baseNodeId: base.id,
+        role: after.role,
+        pageIndex: after.pageIndex,
+        fromBBox: base.bbox,
+        toBBox: after.bbox,
+        fromTextPreview: textPreview(base.text),
+        toTextPreview: textPreview(after.text),
+        message: `${after.role} content changed "${textPreview(base.text)}" → "${textPreview(after.text)}" on page ${after.pageIndex + 1}`,
+      });
+    }
+
     if (base.role === 'heading' && after.role === 'heading' && base.headingLevel !== after.headingLevel) {
       // A heading level the extractor INFERRED (confidence < 1: the pdfjs
       // path) is a heuristic, and a heuristic must not block a merge on its
