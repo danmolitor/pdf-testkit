@@ -99,7 +99,7 @@ await expect(layout).toMatchPDFSnapshot(); // authoritative, no heuristics
 ```
 
 The same path reaches the CLI through a **layout sidecar**: write the layout beside the PDF as
-`<file>.pdf.layout.json` and `pdf-testkit upload` takes structure from it instead of inferring it
+`<file>.pdf.layout.json` and the CLI takes structure from it instead of inferring it
 from the PDF.
 
 ```ts
@@ -130,7 +130,6 @@ pdf-testkit diff a.pdf b.pdf --content --fail-on warn         # also catch text 
 
 pdf-testkit render-pages invoice.pdf --out pages/ --dpi 150   # WebP page images (needs @napi-rs/canvas)
 pdf-testkit check-determinism dist/invoice.pdf --cmd "npm run render:invoice" --clock-offset 26h
-pdf-testkit upload dist/*.pdf                          # hosted review — see "Hosted review" below
 ```
 
 Exit code is the contract: **0** = clean (or below the `--fail-on` gate), **1** = regression.
@@ -199,79 +198,6 @@ and commit it; the Action diffs each PR's `current.json` against it. Committing 
 (both baseline and current) keeps the runner free of PDF parsing. The Action's bundle carries no
 `pdfjs-dist`, and a `.pdf` path resolves it from the Action's own checkout, not from yours, so
 snapshot with the CLI first. Pin the Action to a released tag (`@v0.1.4`), not a branch.
-
-**3. Hosted review (pdf-testkit cloud).** Baselines stored outside the repo, a review UI with
-side-by-side page images, a GitHub check and PR comment, and a record of who approved what. The
-CLI still does every bit of extraction, rendering and diffing on your runner; the service only
-stores, displays and remembers — it never sees the PDF.
-
-> [!IMPORTANT]
-> **Mark `forme-review / semantic-diff` as a required status check in branch protection, or pass
-> `--fail-on`.** By default `upload` exits 0 even when a document is blocked: the service's check
-> is the gate, and a failing step would report the same thing twice. Without a required check, a
-> blocked document is a green job with a red check you might not notice. The same setting is what
-> catches a missing check when the service is unreachable — `upload` warns and passes in that
-> case (use `--require-service` to fail instead).
-
-Quickstart:
-
-1. Install the GitHub App on the repository and create its CI token; store it as
-   `PDF_TESTKIT_TOKEN`.
-2. Install the CLI: `npm i -D @pdf-testkit/cli`. Then point it at the documents your tests
-   already produce:
-   ```yaml
-   - run: npm run build:docs                 # whatever renders your PDFs
-   - run: npx pdf-testkit upload dist/invoice.pdf dist/report.pdf
-     env:
-       PDF_TESTKIT_SERVICE_URL: https://review-api.formepdf.com
-       PDF_TESTKIT_TOKEN: ${{ secrets.PDF_TESTKIT_TOKEN }}
-   ```
-   Page images (an org opted into them) additionally need `npm i -D @napi-rs/canvas` (prebuilt
-   binaries, no native toolchain). The service URL is the one the review app shows you.
-   On GitHub Actions the commit, branch, PR and run identity are read from the environment; on
-   `pull_request` events the PR's head SHA is used, never the merge commit. Elsewhere pass
-   `--repo --commit --branch --run-id` or the `PDF_TESTKIT_*` equivalents.
-3. **Check each fixture is deterministic before you rely on it:**
-   `pdf-testkit check-determinism dist/invoice.pdf --cmd "npm run build:docs" --clock-offset 26h`.
-   A fixture that embeds `new Date()` or a random invoice number reports events forever; freeze
-   the value in the fixture data. The service will not ignore a field for you.
-4. Mark the check required (see above), then open your first PR. The first upload of a document
-   establishes its baseline — nothing is compared, the check passes as "Baseline established".
-   Later runs compare against the default branch's current baseline; approving in the review UI
-   stages the promotion, and the baseline advances when the commit lands on `main`.
-
-Or use the Action in service mode — it runs your installed CLI and otherwise stays out of the way:
-
-```yaml
-- uses: danmolitor/pdf-testkit/packages/action@v0.3.0
-  with:
-    service-token: ${{ secrets.PDF_TESTKIT_TOKEN }}
-    service-url: https://review-api.formepdf.com
-    documents: |
-      dist/invoice.pdf
-      dist/report.pdf
-```
-
-**Conformance results.** If your CI already runs a validator, attach its report and the service
-records the verdict, attributed to that validator by name and version, on the document's timeline:
-
-```yaml
-- run: verapdf -f ua1 dist/*.pdf > reports/ua1.xml || true     # your validator, your gate
-- run: npx pdf-testkit upload dist/*.pdf --conformance reports/ua1.xml
-```
-
-Reads veraPDF's XML or JSON report, or a `forme-review-conformance/1` JSON file for any other
-validator (documented in `packages/protocol/PROTOCOL.md` §9b). pdf-testkit never validates, and
-a verdict never changes the check: a validator confirms structure exists; it cannot confirm the
-document is accessible. Policy: veraPDF is the only third-party format parsed; everything else,
-including validators we use ourselves, goes through the documented JSON.
-
-`upload` exit codes: **0** reported (or service unavailable without `--require-service`) ·
-**1** `--fail-on` gate hit · **2** configuration error (revoked token, wrong repository, unreadable
-document — a 4xx is never treated as "unavailable") · **3** unavailable with `--require-service`.
-Flags: `--dpi 150`, `--no-images` (structure only), `--fail-on error|warn|any`, `--require-service`,
-`--no-layout` (ignore Forme layout sidecars; see the fast path above).
-The wire format is documented in `packages/protocol/PROTOCOL.md`.
 
 ## How it works
 
@@ -366,8 +292,8 @@ no container concept. Confidence is 1.0 on the FormePDF path and &lt;1 here — 
 ## Scope (v0.1)
 
 **In:** page/page-assignment, table-position, heading-hierarchy, and overflow diffing; Jest +
-Vitest matchers; CLI (snapshot, diff, render-pages, check-determinism, upload); GitHub Action in
-comment mode or service mode; the upload protocol for the hosted review layer.
+Vitest matchers; CLI (snapshot, diff, render-pages, check-determinism); GitHub Action in
+comment mode.
 **Out (later):** pixel diffing; PDF/A·UA conformance diffing; font-embedding diffing; non-PDF
 formats.
 
@@ -379,8 +305,8 @@ formats.
 | `@pdf-testkit/matcher-core` | Framework-agnostic `toMatchPDFSnapshot` logic |
 | `@pdf-testkit/vitest` · `@pdf-testkit/jest` | Thin test-runner adapters |
 | `@pdf-testkit/cli` | `pdf-testkit` command |
-| `@pdf-testkit/protocol` | CLI ↔ review-service contract: schemas, types, and a fixture server for tests |
-| `@pdf-testkit/action` | GitHub Action: comment mode (no service) or service mode |
+| `@pdf-testkit/protocol` | Shared wire-format schemas and types, plus a fixture server for tests |
+| `@pdf-testkit/action` | GitHub Action: comment mode |
 
 ## Development
 
