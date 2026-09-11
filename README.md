@@ -79,6 +79,13 @@ baseline; later runs diff against it. Accept intentional changes with `-u` (Vite
 mode) or `PDF_TESTKIT_UPDATE=1`. On CI, a missing baseline **fails** rather than being created
 silently.
 
+> **Never hand-edit a committed baseline to test your setup.** A snapshot carries a
+> `contentHash`, and `diffSnapshots` short-circuits to "identical" when both sides hash the
+> same — so editing a baseline's nodes without recomputing the hash produces *no events*, and
+> a check that is broken looks exactly like a check that passes. To prove your diff actually
+> fires, **change the input and re-render**: edit a number in the source document, render it,
+> and diff the two fresh snapshots.
+
 Options: `toMatchPDFSnapshot({ contentChanges, minConfidence, positionThresholdPts, ignoreRoles, severityOverrides, snapshotDir, snapshotName })`.
 
 By default pdf-testkit diffs **structure, not values** — a cell that keeps its slot but changes its
