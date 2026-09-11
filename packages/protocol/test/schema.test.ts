@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   BatchRequest,
   RunRequest,
+  RunResponse,
+  ReviewState,
   PROTOCOL_VERSION,
   computeOutcome,
 } from '../src/index.js';
@@ -149,5 +151,23 @@ describe('computeOutcome', () => {
     expect(computeOutcome(warnOnly, 'warn')).toEqual({ outcome: 'blocked', review_state: 'awaiting_review' });
     expect(computeOutcome([event(0, 'info')], 'any')).toEqual({ outcome: 'blocked', review_state: 'awaiting_review' });
     expect(computeOutcome([], 'any')).toEqual({ outcome: 'passed', review_state: 'not_required' });
+  });
+});
+
+/**
+ * The service grew an `ignored` decision (a reviewer sets an awaiting run aside:
+ * no verdict, no promotion, the check clears) after 0.5.0 shipped with an enum
+ * that stopped at `superseded`. A re-upload of an identical structure returns
+ * the existing run with its review state, so `unchanged` can legitimately carry
+ * `ignored`, and the schema has to admit every state the service can hold.
+ */
+describe('ReviewState', () => {
+  it('admits every state the service can hold, including ignored', () => {
+    expect(ReviewState.options).toEqual(['not_required', 'awaiting_review', 'accepted', 'rejected', 'superseded', 'ignored']);
+  });
+
+  it('an unchanged re-upload of an ignored run parses', () => {
+    const res = RunResponse.safeParse({ run_id: 'run_1', disposition: 'unchanged', kind: 'compared', outcome: 'passed', review_state: 'ignored', uploads: null });
+    expect(res.success).toBe(true);
   });
 });

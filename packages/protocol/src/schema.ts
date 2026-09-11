@@ -28,7 +28,10 @@ export const Presence = z.enum(['tracked', 'missing', 'untracked']);
 export const PrivacyMode = z.enum(['A', 'B']);
 export const RunKind = z.enum(['established', 'compared']);
 export const Outcome = z.enum(['passed', 'blocked']);
-export const ReviewState = z.enum(['not_required', 'awaiting_review', 'accepted', 'rejected', 'superseded']);
+// `ignored`: a reviewer set an awaiting run aside as not a document change. No
+// verdict, no promotion, the check clears. A re-upload of the same structure
+// returns the existing run, so `unchanged` responses can carry any of these.
+export const ReviewState = z.enum(['not_required', 'awaiting_review', 'accepted', 'rejected', 'superseded', 'ignored']);
 export const Producer = z.enum(['formepdf', 'pdfjs']);
 
 const nonNegInt = z.number().int().min(0);

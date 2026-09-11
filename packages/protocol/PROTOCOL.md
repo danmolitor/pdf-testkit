@@ -203,6 +203,11 @@ Rules the service enforces:
   `review_state` is `awaiting_review` whenever *any* event exists, regardless of
   the gate (a warnings-only run is passed + awaiting_review: the check is green,
   the review is still owed). No events → `not_required`.
+  The other states are set by people, never by an upload: `accepted` and
+  `rejected` are verdicts, `ignored` sets the run aside as not a document
+  change (no verdict, no promotion, the check clears, the baseline stays), and
+  `superseded` marks a run a newer one replaced. An `unchanged` response
+  returns the existing run with whichever of these it holds.
 - `baseline_run_id` must be the document's **current** baseline at the moment the
   run is created. If the baseline moved between §3 and §4, the response is
   `409 baseline_moved` with the new baseline in `details`; the CLI re-diffs and
