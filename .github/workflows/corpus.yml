@@ -24,7 +24,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # generate.ts is executed directly (`node …/generate.ts`), which needs
+          # Node's native TypeScript type-stripping — unflagged only since Node
+          # 22.18 / 23.6. Node 20 throws ERR_UNKNOWN_FILE_EXTENSION on the .ts.
+          # 24 also matches the local env the committed fixtures were rendered on.
+          node-version: 24
           cache: npm
       - run: npm ci
       - run: npm run build
