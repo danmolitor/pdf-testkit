@@ -48,6 +48,14 @@ jobs:
           bin=$(echo "$out" | awk 'END{print $NF}')
           test -x "$bin" || { echo "::error::pinned Chrome not found at '$bin'"; exit 1; }
           echo "CHROME_PATH=$bin" >> "$GITHUB_ENV"
+      # Ubuntu 24.04 (ubuntu-latest) restricts unprivileged user namespaces via
+      # AppArmor, so a freshly-downloaded Chrome for Testing aborts with "No
+      # usable sandbox!" (the runner's preinstalled Chrome ships a profile that
+      # exempts it; a bare CfT binary doesn't). Re-enable userns for the render
+      # so Chrome keeps its sandbox — cleaner than launching with --no-sandbox,
+      # and it leaves the producer unchanged. The runner is ephemeral.
+      - name: Allow Chrome's sandbox (Ubuntu 24.04 userns restriction)
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       # Pull the rendering producers to their latest published versions so a new
       # release is caught here. npm ci alone installs the locked versions and
       # would never surface an upstream bump. (Puppeteer's browser is pinned
