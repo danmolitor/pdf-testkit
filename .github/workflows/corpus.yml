@@ -40,17 +40,27 @@ jobs:
         run: npm install -w @pdf-testkit/fixtures @react-pdf/renderer@latest pdfkit@latest puppeteer-core@latest @formepdf/core@latest @formepdf/react@latest
       - name: Regenerate the corpus
         run: node packages/fixtures/producers/generate.ts
-      # The manifest carries each fixture's structure hash and producer version;
-      # PDF bytes vary run-to-run (embedded dates) and are NOT gated. A manifest
-      # change means either a producer version moved or its output's extracted
-      # structure changed — both worth a human's eyes.
-      - name: Fail on structural or producer-version drift
+      # Gate on STRUCTURE, not version. The manifest records each fixture's
+      # structureHash/layoutHash (what pdf-testkit extracts) plus the producer
+      # version. Only a change to the extracted structure is a real signal — a
+      # producer cutting a release that renders identically is a non-event for
+      # this tool, and gating on the version field alone turned every upstream
+      # release into a red weekly build (three in two weeks: forme 0.23→0.25,
+      # puppeteer 25.11→25.12, all with zero structural change). So compare only
+      # the hash fields; surface a version bump as a notice, never a failure.
+      # PDF bytes (embedded dates) are not gated either.
+      - name: Fail on structural drift (producer version bumps alone don't fail)
         run: |
-          if ! git diff --exit-code -- packages/fixtures/corpus-manifest.json; then
-            echo "::error::Corpus manifest changed — a producer version bump or an extraction change altered the structure (diff above). If intended, run 'node packages/fixtures/producers/generate.ts' locally and commit the regenerated fixtures + manifest."
+          proj() { jq -S '[.[] | {file, structureHash, layoutHash}]' "$1"; }
+          git show HEAD:packages/fixtures/corpus-manifest.json > /tmp/committed-manifest.json
+          if ! diff <(proj /tmp/committed-manifest.json) <(proj packages/fixtures/corpus-manifest.json); then
+            echo "::error::Corpus STRUCTURE drift — a producer changed the extracted structure of a fixture (structureHash/layoutHash differ above). This is the signal the corpus exists to catch. Regenerate locally ('node packages/fixtures/producers/generate.ts'), review the change, and commit the fixtures + manifest."
             exit 1
           fi
-          echo "Corpus manifest unchanged — no structural drift."
+          if ! git diff --quiet -- packages/fixtures/corpus-manifest.json; then
+            echo "::notice::Producer version(s) moved but the extracted structure is unchanged — re-pin the manifest at your convenience. Not a failure."
+          fi
+          echo "No structural drift."
       - name: Upload regenerated corpus for inspection
         if: always()
         uses: actions/upload-artifact@v4

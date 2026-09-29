@@ -1,7 +1,7 @@
 [
   {
     "producer": "forme",
-    "producerVersion": "0.23.0",
+    "producerVersion": "0.25.0",
     "doc": "compact",
     "variant": "baseline",
     "renderCommand": "renderDocumentWithLayout(<Document>)",
@@ -11,7 +11,7 @@
   },
   {
     "producer": "forme",
-    "producerVersion": "0.23.0",
+    "producerVersion": "0.25.0",
     "doc": "compact",
     "variant": "changed",
     "renderCommand": "renderDocumentWithLayout(<Document>)",
@@ -21,7 +21,7 @@
   },
   {
     "producer": "forme",
-    "producerVersion": "0.23.0",
+    "producerVersion": "0.25.0",
     "doc": "contract",
     "variant": "baseline",
     "renderCommand": "renderDocumentWithLayout(<Document>)",
@@ -31,7 +31,7 @@
   },
   {
     "producer": "forme",
-    "producerVersion": "0.23.0",
+    "producerVersion": "0.25.0",
     "doc": "contract",
     "variant": "changed",
     "renderCommand": "renderDocumentWithLayout(<Document>)",
@@ -41,7 +41,7 @@
   },
   {
     "producer": "forme",
-    "producerVersion": "0.23.0",
+    "producerVersion": "0.25.0",
     "doc": "invoice",
     "variant": "baseline",
     "renderCommand": "renderDocumentWithLayout(<Document>)",
@@ -51,7 +51,7 @@
   },
   {
     "producer": "forme",
-    "producerVersion": "0.23.0",
+    "producerVersion": "0.25.0",
     "doc": "invoice",
     "variant": "changed",
     "renderCommand": "renderDocumentWithLayout(<Document>)",
@@ -61,7 +61,7 @@
   },
   {
     "producer": "forme",
-    "producerVersion": "0.23.0",
+    "producerVersion": "0.25.0",
     "doc": "statement",
     "variant": "baseline",
     "renderCommand": "renderDocumentWithLayout(<Document>)",
@@ -71,7 +71,7 @@
   },
   {
     "producer": "forme",
-    "producerVersion": "0.23.0",
+    "producerVersion": "0.25.0",
     "doc": "statement",
     "variant": "changed",
     "renderCommand": "renderDocumentWithLayout(<Document>)",
@@ -153,7 +153,7 @@
   },
   {
     "producer": "puppeteer",
-    "producerVersion": "25.11.0",
+    "producerVersion": "25.12.0",
     "doc": "compact",
     "variant": "baseline",
     "renderCommand": "chrome page.pdf({ format: \"A4\" })",
@@ -162,7 +162,7 @@
   },
   {
     "producer": "puppeteer",
-    "producerVersion": "25.11.0",
+    "producerVersion": "25.12.0",
     "doc": "compact",
     "variant": "changed",
     "renderCommand": "chrome page.pdf({ format: \"A4\" })",
@@ -171,7 +171,7 @@
   },
   {
     "producer": "puppeteer",
-    "producerVersion": "25.11.0",
+    "producerVersion": "25.12.0",
     "doc": "contract",
     "variant": "baseline",
     "renderCommand": "chrome page.pdf({ format: \"A4\" })",
@@ -180,7 +180,7 @@
   },
   {
     "producer": "puppeteer",
-    "producerVersion": "25.11.0",
+    "producerVersion": "25.12.0",
     "doc": "contract",
     "variant": "changed",
     "renderCommand": "chrome page.pdf({ format: \"A4\" })",
@@ -189,7 +189,7 @@
   },
   {
     "producer": "puppeteer",
-    "producerVersion": "25.11.0",
+    "producerVersion": "25.12.0",
     "doc": "invoice",
     "variant": "baseline",
     "renderCommand": "chrome page.pdf({ format: \"A4\" })",
@@ -198,7 +198,7 @@
   },
   {
     "producer": "puppeteer",
-    "producerVersion": "25.11.0",
+    "producerVersion": "25.12.0",
     "doc": "invoice",
     "variant": "changed",
     "renderCommand": "chrome page.pdf({ format: \"A4\" })",
@@ -207,7 +207,7 @@
   },
   {
     "producer": "puppeteer",
-    "producerVersion": "25.11.0",
+    "producerVersion": "25.12.0",
     "doc": "statement",
     "variant": "baseline",
     "renderCommand": "chrome page.pdf({ format: \"A4\" })",
@@ -216,7 +216,7 @@
   },
   {
     "producer": "puppeteer",
-    "producerVersion": "25.11.0",
+    "producerVersion": "25.12.0",
     "doc": "statement",
     "variant": "changed",
     "renderCommand": "chrome page.pdf({ format: \"A4\" })",
