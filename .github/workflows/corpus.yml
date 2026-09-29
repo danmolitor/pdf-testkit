@@ -32,10 +32,26 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      # Pin the browser Puppeteer renders with. The runner's PREINSTALLED Chrome
+      # floats with the GitHub image, and every Chrome build nudges text a
+      # fraction of a point — which flips Puppeteer's structureHash with no real
+      # change, the corpus's last false-positive source. Chrome for Testing is
+      # immutable per version, so pinning it makes Puppeteer output reproducible
+      # run-to-run. Bump CHROME_VERSION deliberately to adopt (and re-pin) a new
+      # Chrome; the producer prefers $CHROME_PATH over the runner's copy.
+      - name: Install pinned Chrome for Testing
+        env:
+          CHROME_VERSION: 154.0.8037.57
+        run: |
+          out=$(npx --yes @puppeteer/browsers install "chrome@${CHROME_VERSION}" --path "$RUNNER_TEMP/cft")
+          echo "$out"
+          bin=$(echo "$out" | awk 'END{print $NF}')
+          test -x "$bin" || { echo "::error::pinned Chrome not found at '$bin'"; exit 1; }
+          echo "CHROME_PATH=$bin" >> "$GITHUB_ENV"
       # Pull the rendering producers to their latest published versions so a new
       # release is caught here. npm ci alone installs the locked versions and
-      # would never surface an upstream bump. Puppeteer uses the runner's
-      # preinstalled Chrome (the producer discovers /usr/bin/google-chrome).
+      # would never surface an upstream bump. (Puppeteer's browser is pinned
+      # above; puppeteer-core@latest still catches API/output changes in the lib.)
       - name: Update producers to latest
         run: npm install -w @pdf-testkit/fixtures @react-pdf/renderer@latest pdfkit@latest puppeteer-core@latest @formepdf/core@latest @formepdf/react@latest
       - name: Regenerate the corpus
